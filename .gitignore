@@ -1,0 +1,8 @@
+victory.mp3
+chromedriver.exe
+__pycache__
+.env
+Perfil
+chromedriver-win64*
+*.txt
+*.json
