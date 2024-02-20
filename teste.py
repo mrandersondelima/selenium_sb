@@ -1,8 +1,21 @@
+from datetime import datetime, timedelta
+import pause
 
-jogos_aptos = [{ 'tempo': 1, 'cronometro': 33.444, 'odd': 1 }, 
-                { 'tempo': 2, 'cronometro': 33.444, 'odd': 2 }]
+
+data_inicio = datetime.now() + timedelta(hours=3, minutes=5)
+
+print( data_inicio.strftime('%Y-%m-%dT%H:%M:%S.000Z' ))
+
+hora_inicio = datetime.strptime('2024-02-12T20:22:00Z', '%Y-%m-%dT%H:%M:00Z')
+
+hora_inicio_2 = datetime.strptime('2024-02-12T20:45:00Z', '%Y-%m-%dT%H:%M:00Z')
+
+print( hora_inicio > hora_inicio_2)
+
+pause.until(hora_inicio)
+
+print('saiu do pause')
 
 
-jogos_aptos_ordenado = sorted(jogos_aptos, key=lambda el: ( -el['tempo'], el['cronometro'], el['odd']  ) )
-
-print(jogos_aptos_ordenado)
+# 2024-02-11T15:36:24.000Z
+# 2024-02-11T15:44:57.000Z
