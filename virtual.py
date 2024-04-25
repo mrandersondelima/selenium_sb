@@ -2155,7 +2155,12 @@ class ChromeAuto():
                     self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
                 except Exception as e:                        
                     print('Não conseguiu limpar os jogos...')
-                    print(e)                        
+                    print(e)            
+
+                try:
+                    self.chrome.execute_script("var botao = document.querySelector('.ui-icon.theme-ex.ng-star-inserted'); if (botao) botao.click()")                    
+                except Exception as e:                        
+                    print(e)            
 
                 clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{champions_cup_start_date_string}']")
                 count = 0
