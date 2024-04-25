@@ -1,5 +1,10 @@
 def calcula_dutching( array_odds, meta ):
-    array_valores = [ 0 for x in array_odds ]
+
+    array_valores = [ 0.0 for x in array_odds ]
+
+    if meta == 0:
+        array_valores = [ 0.1 for x in array_odds ]
+        return array_valores
 
     valor_gasto_na_aposta = 0.00
 

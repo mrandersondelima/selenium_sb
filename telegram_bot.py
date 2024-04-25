@@ -1,28 +1,35 @@
-import requests
 from datetime import datetime
 from credenciais import token, chat_id, token_id_erro, chat_id_grupo
+import telegram
 
 class TelegramBot:
+
+    bot = None
+
     def __init__(self):
-        self.url = f"https://api.telegram.org/bot{token}/getUpdates"     
+        self.bot = telegram.Bot(token)
 
-
-    def envia_mensagem(self, mensagem):
-        url = f'https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={mensagem}'
-        requests.get(url)
-        url = f'https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id_grupo}&text={mensagem}'
-        requests.get(url)
+    async def envia_mensagem(self, mensagem):
+        try:
+            await self.bot.send_message(text=mensagem, chat_id=chat_id_grupo, read_timeout=2, write_timeout=2, connect_timeout=2, pool_timeout=2)
+            await self.bot.send_message(text=mensagem, chat_id=chat_id, read_timeout=2, write_timeout=2, connect_timeout=2, pool_timeout=2)
+        except:
+            raise Exception
 
 if __name__ == '__main__':
     telegram_bot = TelegramBot()
     telegram_bot.envia_mensagem( datetime.now() )
 
 class TelegramBotErro:
-    def __init__(self):
-        self.url = f"https://api.telegram.org/bot{token_id_erro}/getUpdates"     
 
-    def envia_mensagem(self, mensagem):
-        url = f'https://api.telegram.org/bot{token_id_erro}/sendMessage?chat_id={chat_id}&text={mensagem}'
-        requests.get(url)
-        url = f'https://api.telegram.org/bot{token_id_erro}/sendMessage?chat_id={chat_id_grupo}&text={mensagem}'
-        requests.get(url)
+    bot = None
+
+    def __init__(self):
+        self.bot = telegram.Bot(token_id_erro)
+
+    async def envia_mensagem(self, mensagem):        
+        try:
+            await self.bot.send_message(text=mensagem, chat_id=chat_id_grupo, read_timeout=2, write_timeout=2, connect_timeout=2, pool_timeout=2)
+            await self.bot.send_message(text=mensagem, chat_id=chat_id, read_timeout=2, write_timeout=2, connect_timeout=2, pool_timeout=2)
+        except:
+            raise Exception

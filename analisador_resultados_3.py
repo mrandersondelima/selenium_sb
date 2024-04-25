@@ -16,13 +16,10 @@ com_ruido_2 = False
 horario_ultima_checagem = datetime.now()
 telegram = TelegramBot()
 
-def empatou(nome_banco_horas):
+def empatou():
     tentativas_leitura = 0
-    url = ''
-    if nome_banco_horas == 'jogos_copa_mundo':
-        url = '/home/andersonmorais/monkeybet/novo_results.sh'
-    else:
-        url = '/home/andersonmorais/monkeybet2/novo_results.sh'
+    url = '/home/anderson/novo_results.sh'
+    
     while True:
 
         try:
@@ -37,6 +34,8 @@ def empatou(nome_banco_horas):
 
                 if '_' not in saida_1[2] and '_' not in result_id_1:
 
+                    print(saida_1[2])
+
                     gols = [ int(x) for x in saida_1[2].split() ] 
 
                     if gols[0] == gols[1]:
@@ -49,7 +48,7 @@ def empatou(nome_banco_horas):
             else:
                 tentativas_leitura += 1
 
-            if tentativas_leitura >= 15:
+            if tentativas_leitura >= 30:
                 return None
         
             sleep(1)

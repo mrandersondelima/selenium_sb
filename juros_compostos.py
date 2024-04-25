@@ -1,8 +1,8 @@
 numero_dias = 30
-greens_ao_dia = 3
-porcentagem = 0.417
-banca_inicial = 1200
-banca_final = 1200
+greens_ao_dia = 15
+porcentagem = 0.79
+banca_inicial = 1270
+banca_final = 1270
 
 valor_final = 0.0
 

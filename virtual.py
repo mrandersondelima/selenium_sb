@@ -30,6 +30,7 @@ from subprocess import Popen, PIPE
 from itertools import cycle
 from analisador_resultados_3 import empatou
 import threading
+import asyncio
 
 hora_jogo_atual = None
 
@@ -48,6 +49,7 @@ class ChromeAuto():
         self.apenas_acompanhar = apenas_acompanhar        
         self.jogos_aleatorios = dict()
         self.numero_apostas = numero_apostas
+        self.qt_apostas_puladas = 0
         #self.gera_jogos_aleatorios()
         self.primeiro_alerta_depois_do_jogo = True
         self.numero_erros_global = 0
@@ -81,7 +83,10 @@ class ChromeAuto():
         self.jogos_computados = 0
         self.n_empates = 0
         self.proporcao_empates = 0.0
-
+        self.perda_acumulada = 0.0
+        self.meta_ganho = 0.0
+        self.aposta_com_erro = False        
+        self.is_for_real = False
         self.jogos = [
             '00:20',
             '01:17',
@@ -118,23 +123,30 @@ class ChromeAuto():
 
     def acessa(self, site):         
         carregou_site = False
-        self.chrome = None
         while not carregou_site:
             try:
                 self.driver_path = 'chromedriver.exe'
                 self.options = Options()
                 self.options.add_argument('--ignore-certificate-errors')
                 self.options.add_argument('--ignore-ssl-errors')
+                self.options.add_argument("--disable-extensions")
+                self.options.add_argument("--dns-prefetch-disable")
+                self.options.add_argument("--disable-gpu")          
+                self.options.add_argument('--no-sandbox')      
+                self.options.add_argument("--force-device-scale-factor=1")                                
+                self.options.add_argument("--log-level=3") 
+                self.options.add_argument("--silent")
+                self.options.page_load_strategy = 'eager'
+                # self.options.add_argument('--disk-cache-size')                
                 self.chrome = webdriver.Chrome(options=self.options, service=ChromeService(ChromeDriverManager().install()))                
                 # definimos quanto um script vai esperar pela resposta
                 self.chrome.get(site)
                 self.chrome.maximize_window()
-                self.chrome.fullscreen_window()
+                self.chrome.fullscreen_window()                
+
                 carregou_site = True
             except Exception as e:
                 print(e)
-                if self.chrome:
-                    self.chrome.quit()
                 sleep(5)
 
     def sair(self):
@@ -160,6 +172,7 @@ class ChromeAuto():
                         print('logou com sucesso')
                         return
                 except Exception as e:
+                    print(e)
                     print('não está logado')
 
                 vezes_fechar_banner = 0        
@@ -219,25 +232,12 @@ class ChromeAuto():
 
                 print('clicou no login')              
 
-                tentativas_de_ler_api = 0
-                while True:
-                    if tentativas_de_ler_api >= 5:
-                        raise Exception
-                    try:
-                        jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                        if not jogos_abertos['summary']['hasError']:
-                            print('logou com sucesso')     
-                            break                   
-                    except Exception as e:
-                        sleep(2)
-                        tentativas_de_ler_api += 1
-                        print(e)
-                  
+                sleep(5)         
 
                 # aqui vou tentar buscar algo da API pra ver se logou de verdade
-                # jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                # if jogos_abertos['summary']['liveBetsCount']:
-                #     print('logou com sucesso')
+                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                if jogos_abertos['summary']['liveBetsCount']:
+                    print('logou com sucesso')
 
                 try:
                     cookies = WebDriverWait(self.chrome, 10).until(
@@ -265,8 +265,6 @@ class ChromeAuto():
                 self.chrome.maximize_window()
                 self.chrome.fullscreen_window()
                 print(e)
-                if tentativas == 5:
-                    self.telegram_bot.envia_mensagem('SISTEMA TRAVADO NO LOGIN')
 
     def quantidade_apostas_feitas(self):
         jogos_feitos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=20&typeFilter=2"); return await d.json();')
@@ -279,30 +277,27 @@ class ChromeAuto():
         return jogos_perdidos
       
     def le_saldo(self):        
-        leu_saldo = False
-        contador_de_trava = 0
+        leu_saldo = False        
         while not leu_saldo:
             try:
-                saldo_request = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/api/balance?forceFresh=1"); return await d.json();')
+                saldo_request = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/api/balance?forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")
                 self.saldo = float(saldo_request['balance']['accountBalance'])
                 leu_saldo = True
             except Exception as e:
                 sleep(5)
-                print(e)
-                contador_de_trava += 1
-                if contador_de_trava % 10 == 0:
-                    self.testa_sessao()
-                    self.telegram_bot_erro.envia_mensagem('SISTEMA POSSIVELMENTE TRAVADO AO LER SALDO.')
-                    self.chrome.refresh()
+                print(e)                
+                self.testa_sessao()                
+                self.chrome.refresh()
                 print('Não foi possível ler saldo. Tentando de novo...')
 
-    def insere_valor(self, id_jogo):
+    async def insere_valor(self, id_jogo):
+        jogos_abertos = None
+
         try:
             print('entrou no insere valor')
 
-            if self.valor_aposta < 1:
-                self.valor_aposta = 1
-
+            if self.valor_aposta < 0.1:
+                self.valor_aposta = 0.1
     
             try:
                 input_valor = WebDriverWait(self.chrome, 20).until(
@@ -319,7 +314,7 @@ class ChromeAuto():
                         EC.element_to_be_clickable((By.CLASS_NAME, 'betslip-place-button' ) )) 
                 botao_aposta.click()     
             except:
-                raise Exception('erro ao clicar no botão')
+                raise Exception('erro ao clicar no botão de aposta')
                     
             sleep(0.2)
             
@@ -329,63 +324,53 @@ class ChromeAuto():
                 botao_fechar.click() 
 
             except:
-                # se ele não clicou no botão de fechar é porque a aposta não foi feita
-                # então vai clicar no botão de fazer aposta de novo
-                print('erro ao clicar no botão de fechar')
-                raise Exception('erro ao clicar no botão de fechar')
+                # se ele não clicou no botão de fechar aposta é porque provavelmente ela não foi feita
+                raise Exception('erro ao clicar no botão de fechar')          
                 
                 # verificamos se há apostas em aberto
             jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
             
-            print('jogos_abertos ', jogos_abertos['summary']['openBetsCount'])
-            if jogos_abertos['summary']['openBetsCount'] >= 1:
-                self.qt_apostas_feitas += 1
 
+            while jogos_abertos['summary']['openBetsCount'] == 0:
+                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                sleep(2)
 
-                perda_acumulada = None
-                with open('perda_acumulada.txt', 'r') as f:
-                    perda_acumulada = float( f.read() )
-                    print('perda_acumulada ', perda_acumulada)
-                    perda_acumulada += self.valor_aposta
-                with open('perda_acumulada.txt', 'w') as f:
-                    f.write(f'{perda_acumulada:.2f}')
-     
-                self.le_saldo()
+            if jogos_abertos['summary']['openBetsCount'] > 0:
+                try:
+                    self.qt_apostas_feitas += 1
+                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')
 
-                self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    self.perda_acumulada += self.valor_aposta
+                    self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
 
-                if not self.varios_jogos:                    
-                    # try:
-                    #     conn = self.get_bd_connection()
-                    #     cur = conn.cursor()
+                    self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-                    #     cur.execute("select valor from meta_ganho")
-                    #     rows = cur.fetchall()
-                    #     self.meta_ganho = rows[0][0]
-                    #     conn.commit()
-                    #     conn.close()
-                    # except Exception as e:
-                    #     print('erro ao conectar ao banco')
-                    #     print(e)
-                    mensagem = f'APOSTA {self.qt_apostas_feitas} REALIZADA.'
+                    apostas_restantes = None
+                    if self.qt_apostas_feitas <= 2:
+                        apostas_restantes = self.qt_apostas_restantes( self.meta_ganho, self.perda_acumulada, self.saldo, 3.0 )
 
-                    if self.qt_apostas_feitas == 1:
-                        self.saldo_antes_aposta = self.saldo
-                        print('saldo antes da aposta ', self.saldo_antes_aposta)
+                    if self.qt_apostas_feitas >= 1:
+                        try:                    
+                            await self.telegram_bot.envia_mensagem(f"APOSTA {self.qt_apostas_feitas} REALIZADA.")
+                            self.horario_ultima_checagem = datetime.now()
+                        except Exception as e:
+                            print(e)                                       
+                        
 
-                    print(mensagem)
-                    self.telegram_bot.envia_mensagem(mensagem)
-                else:                                        
-                    self.telegram_bot.envia_mensagem(f'APOSTA REALIZADA.')
-                self.primeiro_alerta_depois_do_jogo = True
-                self.primeiro_alerta_sem_jogos_elegiveis = True
+                    self.primeiro_alerta_depois_do_jogo = True
+                    self.primeiro_alerta_sem_jogos_elegiveis = True                    
+                    self.le_saldo()
 
-                if id_jogo:
-                    self.jogos_inseridos.append(f"{id_jogo['id']}{id_jogo['tempo']}")
-                self.numero_apostas_feitas = 0
+                    self.saldo_antes_aposta = self.saldo
+                    self.escreve_em_arquivo('saldo_antes_aposta.txt', f'{self.saldo_antes_aposta:.2f}', 'w')
+                    # if id_jogo:
+                    #     self.jogos_inseridos.append(f"{id_jogo['id']}{id_jogo['tempo']}{id_jogo['mercado']}")
+                    #     self.save_array_on_disk('jogos_inseridos.txt', self.jogos_inseridos)
+                    self.numero_apostas_feitas = 0
+                except Exception as e:
+                    print(e)
                 return True
             else:
-                print('sem apostas abertas')
                 # deu algum erro maluco, limpamos a aposta e esperamos o próximo laço
                 self.testa_sessao()
                 try:
@@ -396,23 +381,149 @@ class ChromeAuto():
                 return False
 
         except Exception as e:
+            print(e)
             self.testa_sessao()
             #self.telegram_bot_erro.envia_mensagem('OCORREU UM ERRO AO TENTAR INSERIR VALOR DA APOSTA.')
             try:
                 self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
                 self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
             except:
-                print('Não conseguiu limpar os jogos...')
-            print(e)
+                print('Não conseguiu limpar os jogos...')            
             return False
 
         return
     
+    def qt_apostas_restantes(self, meta_ganho, perda_acumulada, banca, odd):
+        qt_apostas = 0
+        banca_restante = banca
+        
+        valor_aposta = ( meta_ganho + perda_acumulada ) / (odd-1) if ( meta_ganho + perda_acumulada ) / (odd-1) >= 0.1 else 0.1
+
+        while valor_aposta <= banca_restante:            
+            qt_apostas += 1
+            perda_acumulada += valor_aposta
+            banca_restante -= valor_aposta
+            valor_aposta = ( meta_ganho + perda_acumulada ) / (odd-1) if ( meta_ganho + perda_acumulada ) / (odd-1) >= 0.1 else 0.1
+
+        return qt_apostas
+        
+    async def insere_valor_dutching(self, id_jogo):
+        jogos_abertos = None
+        apostou = False
+
+        while not apostou:
+            try:
+                print('entrou no insere valor')
+
+                if self.valor_aposta < 0.1:
+                    self.valor_aposta = 0.1
+
+                if self.qt_apostas_restantes( self.meta_ganho, self.perda_acumulada, self.saldo, 3.0 ) == 0:
+                    self.valor_aposta = 0.1
+        
+                clicou = False
+                count = 0
+                while not clicou and count < 5:
+                    try:                
+                        valor_do_campo = f'{self.valor_aposta:.2f}'.replace('.', ',')
+                        input_field = WebDriverWait(self.chrome, 10).until(
+                                EC.presence_of_element_located((By.CLASS_NAME, 'stake-input-value') )) 
+                        input_field.send_keys(u'\ue009' + u'\ue003')                    
+                        input_field.send_keys(valor_do_campo)                    
+
+                        sleep(0.5)                                        
+
+                        while input_field.get_attribute('value').strip() != valor_do_campo: 
+                            input_field.send_keys(u'\ue009' + u'\ue003')                    
+                            input_field.send_keys(valor_do_campo)
+                            sleep(0.5)
+
+                        clicou = True
+                    except Exception as e:
+                        count += 1
+                        print('erro ao inserir valor')
+                        print(e)
+                
+                if count == 5:
+                    self.testa_sessao()
+                    self.aposta_com_erro = True
+                    return
+                            
+                sleep(0.2)
+
+                clicou = False
+                count = 0
+                while not clicou and count < 5:
+                    try:
+                        botao_aposta = WebDriverWait(self.chrome, 10).until(
+                                EC.element_to_be_clickable((By.CLASS_NAME, 'betslip-place-button' ) )) 
+                        botao_aposta.click()    
+                        clicou = True 
+                    except:
+                        count += 1
+                        print('erro ao clicar no botão de aposta')
+
+                if count == 5:
+                    self.testa_sessao()
+                    self.aposta_com_erro = True
+                    return
+                        
+                sleep(0.2)
+
+                clicou = False
+                count = 0
+                while not clicou and count < 5:
+                    try:
+                        botao_fechar = WebDriverWait(self.chrome, 10).until(
+                                EC.element_to_be_clickable((By.CSS_SELECTOR, '.betslip-result-actions .btn-primary' ) )) 
+                        botao_fechar.click() 
+                        clicou = True
+                    except:
+                        count += 1
+                        # se ele não clicou no botão de fechar aposta é porque provavelmente ela não foi feita
+                        print('erro ao clicar no botão de fechar')                 
+
+                if count == 5:
+                    self.testa_sessao()   
+                    self.aposta_com_erro = True
+                    return
+                
+                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+
+                while jogos_abertos['summary']['openBetsCount'] == 0:
+                    jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                    sleep(2)
+
+                self.saldo -= self.valor_aposta
+                self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+
+                self.qt_apostas_feitas += 1
+                self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')
+
+                self.perda_acumulada += self.valor_aposta                    
+                self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+
+                apostou = True
+
+            except Exception as e:
+                print('erro no insere valor')
+                self.aposta_com_erro = True
+                print(e)
+                self.testa_sessao()
+                #self.telegram_bot_erro.envia_mensagem('OCORREU UM ERRO AO TENTAR INSERIR VALOR DA APOSTA.')
+                try:
+                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+                except:
+                    print('Não conseguiu limpar os jogos...')
+    
+
     def testa_sessao(self):
         print('testando sessão...')
         try:
             self.chrome.execute_script("var botao_fechar = document.querySelector('.ui-icon.theme-close-i.ng-star-inserted'); if (botao_fechar) { botao_fechar.click(); }")
         except Exception as e:
+            print(e)
             print('Erro ao tentar fechar banner')
         try:
             jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
@@ -420,9 +531,14 @@ class ChromeAuto():
                 print('sessão ativa')
         except:
             print('sessão expirada. tentando login novamente.')
-            self.chrome.quit()
-            self.acessa('https://sports.sportingbet.com/pt-br/sports')        
-            self.faz_login()
+            try:
+                self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
+                self.chrome.maximize_window()
+                self.chrome.fullscreen_window()
+            except Exception as e:
+                print(e)
+            finally:
+                self.faz_login()
 
     def define_hora_jogo(self, hora_jogo_atual):
         hora = int(hora_jogo_atual.split(':')[0])
@@ -450,12 +566,13 @@ class ChromeAuto():
             horario = WebDriverWait(self.chrome, 10).until(
                 EC.element_to_be_clickable((By.XPATH, horario_jogo)))
             horario.click()
-            sleep(2)
+            sleep(0.5)
             horario.click()
-            sleep(2)
+            sleep(0.5)
             print('clicou no jogo')
             return True
         except Exception as e:
+            print('erro no clica horário jogo')
             print(e) 
             return False
             # se não encontrar o jogo para o horário então a gente aborta logo a brincadeira
@@ -666,21 +783,26 @@ class ChromeAuto():
         
         self.telegram_bot.envia_mensagem('APOSTA REALIZADA.')
 
-    def espera_resultado_jogo(self, horario_jogo):
+    async def espera_resultado_jogo(self, horario_jogo):
 
         try:
             horario = horario_jogo
             print('HORÁRIO',  horario )
             print('Esperando resultado da partida...')
-            self.telegram_bot.envia_mensagem(f'esperando resultado aposta {horario}')
             hora = int(horario.split(':')[0])
             minuto = int(horario.split(':')[1])
             now = datetime.today()  
             hora_do_jogo = datetime( now.year, now.month, now.day, hora, minuto, 0)
-            pause.until( hora_do_jogo + timedelta(minutes=1, seconds=10)  )
+            pause.until( hora_do_jogo + timedelta(minutes=1, seconds=30)  )
             '''saldo = self.chrome.find_element(By.XPATH, '/html/body/vn-app/vn-dynamic-layout-single-slot[2]/vn-header/header/nav/vn-header-section[2]/vn-h-avatar-balance/vn-h-balance/div[2]')
             saldo.click()'''
+
+            if self.aposta_com_erro:
+                self.aposta_com_erro = False
+                return
             
+            jogos_abertos = None
+
             try:               
                 jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
             except:
@@ -688,72 +810,76 @@ class ChromeAuto():
 
             while jogos_abertos['summary']['openBetsCount'] >= 1:
                 print('ainda não apurou resultado')
-                sleep(5)
+                sleep(2)
                 try:
                     jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
                 except:
                     self.testa_sessao()
-
-
-            self.atualiza_horario_jogos()
-            self.proximo_jogo = self.horario_proximo_jogo()
-            # se chegar aqui é porque não há mais jogos em aberto
-            # try:
-            #     jogos_encerrados = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=2&typeFilter=2"); return await d.json();')
-            #     for jogo_encerrado in jogos_encerrados['betslips']:
-            #         if jogo_encerrado['state'] == 'Won':
-            #             self.ganhou = True
-            #             self.telegram_bot_erro.envia_mensagem('GANHOU')
-            #             with open('gastos.txt', 'w') as f:
-            #                 f.write( "0.0" )
-            #             break
-            # except:
-            #     self.testa_sessao()
-
+         
             try:
-                jogos_encerrados = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=2"); return await d.json();')
+                jogos_encerrados = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=4&typeFilter=2"); return await d.json();')
                 jogo_encerrado = jogos_encerrados['betslips'][0]
-                if jogo_encerrado['state'] == 'Won':
+                jogo_encerrado_2 = jogos_encerrados['betslips'][1]
+                jogo_encerrado_4 = jogos_encerrados['betslips'][3]
 
-                    self.n_empates += 1
-                    self.escreve_em_arquivo('n_empates.txt', f'{self.n_empates}', 'w')
+                hora_ultima_aposta = jogo_encerrado['bets'][0]['fixture']['date']
+                hora_aposta_anterior = jogo_encerrado_4['bets'][0]['fixture']['date']
 
-                    # quanto menor for essa proporção maior a chance de sair empate
-                    self.proporcao_empates = self.n_empates / self.jogos_computados
-                    self.escreve_em_arquivo('proporcao_empates.txt', f'{self.proporcao_empates:.2f}', 'w') 
+                hora_ultima_aposta = datetime.strptime( hora_ultima_aposta, '%Y-%m-%dT%H:%M:%SZ' )
+                hora_ultima_aposta = hora_ultima_aposta - timedelta(minutes=3)
+                
+                hora_aposta_anterior = datetime.strptime( hora_aposta_anterior, '%Y-%m-%dT%H:%M:%SZ' )
 
-                    self.escreve_em_arquivo('historico_empates.txt', f"{self.proporcao_empates:.2f};true{os.linesep}" , 'a')
+                if hora_ultima_aposta != hora_aposta_anterior:
+                    if self.qt_apostas_puladas > 0:
+                        try:
+                            await self.telegram_bot_erro.envia_mensagem('PULOU APOSTAS. SISTEMA LENTO.')
+                        except:
+                            pass
+                    self.qt_apostas_puladas += 1
+                
 
-                    self.numero_reds = 0
-                    self.time_de_interesse = None
-                    self.ganhou = True
-                    with open('time_de_interesse.txt', 'w') as f:
-                        f.write('None')
+                if jogo_encerrado['state'] == 'Won' or jogo_encerrado_2['state'] == 'Won':                
 
                     self.le_saldo()
-
                     print('saldo depois do resultado ', self.saldo )
 
-                    while self.saldo < self.saldo_antes_aposta:
-                        print('saldo desatualizado')
-                        self.le_saldo()
-                        sleep(5)
+                    # while self.saldo < self.saldo_antes_aposta:
+                    #     print('saldo desatualizado')
+                    #     self.le_saldo()
+                    #     sleep(5)
 
-                    meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
 
-                    meta_ganho = self.saldo * 0.1 if not self.meta_fixa else meta_ganho
 
-                    self.telegram_bot.envia_mensagem(f'ganhou\nmeta de ganho: {meta_ganho:.2f}\npróximo jogo: {self.proximo_jogo}')
-                    with open('perda_acumulada.txt', 'w') as f:
-                        f.write('0.0')
+                    # self.meta_ganho = self.saldo * 0.01
+                    # self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')
+                    
 
-                    if not self.meta_fixa:
-                        with open('meta_ganho.txt', 'w') as f:
-                            f.write(f'{meta_ganho:.2f}')
+                    
+                    if self.qt_apostas_feitas <= 2:
+                        await self.telegram_bot_erro.envia_mensagem(f'ganhou\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}')
+                        self.perda_acumulada = 0.0
+                        self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')                    
+                    else:
+                        valor_ganho = None
+                        if jogo_encerrado['state'] == 'Won':
+                            valor_ganho = float( jogo_encerrado['payout']['value'] )                            
+                        else:
+                            valor_ganho = float( jogo_encerrado_2['payout']['value'] )
 
-                    self.qt_apostas_feitas = 0
-                else:
-                    self.telegram_bot.envia_mensagem(f'perdeu\npróximo jogo: {self.proximo_jogo}')
+                        if self.perda_acumulada < valor_ganho:
+                            await self.telegram_bot_erro.envia_mensagem(f'ganhou\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}')
+                            self.perda_acumulada = 0
+                        else:                        
+                            self.perda_acumulada -= valor_ganho                        
+
+                        self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w') 
+
+                    if self.qt_apostas_feitas <= 2:
+                        self.qt_apostas_feitas = 3
+                    else:
+                        self.qt_apostas_feitas = 0
+                    self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')                
             except Exception as e:
                 print(e)
 
@@ -762,23 +888,128 @@ class ChromeAuto():
             print(f'SALDO ATUAL: {self.saldo}')
         except Exception as e:
             print(e)
+            self.testa_sessao()
             print('Algo saiu errada no espera_resultado')
 
-    def espera_resultado_jogo_sem_aposta(self, horario_jogo):
+    
+    async def espera_resultado_jogo_empate(self, horario_jogo):
 
         try:
             horario = horario_jogo
             print('HORÁRIO',  horario )
             print('Esperando resultado da partida...')
+            hora = int(horario.split(':')[0])
+            minuto = int(horario.split(':')[1])
+            now = datetime.today()  
+            hora_do_jogo = datetime( now.year, now.month, now.day, hora, minuto, 0)
+            pause.until( hora_do_jogo + timedelta(minutes=1, seconds=30)  )
+            '''saldo = self.chrome.find_element(By.XPATH, '/html/body/vn-app/vn-dynamic-layout-single-slot[2]/vn-header/header/nav/vn-header-section[2]/vn-h-avatar-balance/vn-h-balance/div[2]')
+            saldo.click()'''
+
+            if self.aposta_com_erro:
+                self.aposta_com_erro = False
+                return
+            
+            jogos_abertos = None
+
+            try:               
+                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+            except:
+                self.testa_sessao()
+
+            while jogos_abertos['summary']['openBetsCount'] >= 1:
+                print('ainda não apurou resultado')
+                sleep(1)
+                try:
+                    jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                except:
+                    self.testa_sessao()
+         
+            try:
+                jogos_encerrados = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=2&typeFilter=2"); return await d.json();')
+                jogo_encerrado = jogos_encerrados['betslips'][0]
+                # jogo_encerrado_2 = jogos_encerrados['betslips'][1]
+                
+
+                # hora_ultima_aposta = jogo_encerrado['bets'][0]['fixture']['date']
+                # hora_aposta_anterior = jogo_encerrado_2['bets'][0]['fixture']['date']
+
+                # hora_ultima_aposta = datetime.strptime( hora_ultima_aposta, '%Y-%m-%dT%H:%M:%SZ' )
+                # hora_ultima_aposta = hora_ultima_aposta - timedelta(minutes=3)
+                
+                # hora_aposta_anterior = datetime.strptime( hora_aposta_anterior, '%Y-%m-%dT%H:%M:%SZ' )
+
+                # if hora_ultima_aposta != hora_aposta_anterior:
+                #     if self.qt_apostas_puladas > 0:
+                #         try:
+                #             await self.telegram_bot_erro.envia_mensagem('PULOU APOSTAS. SISTEMA LENTO.')
+                #         except:
+                #             pass
+                #     self.qt_apostas_puladas += 1
+                
+
+                if jogo_encerrado['state'] == 'Won':             
+
+                    valor_ganho = float( jogo_encerrado['payout']['value'] )      
+
+                    self.is_for_real = False     
+
+                    self.saldo += valor_ganho
+                    self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+                    print('saldo depois do resultado ', self.saldo )
+                    
+                    if self.qt_apostas_feitas <= 2:
+                        self.meta_ganho = self.saldo * 0.0034    
+                        self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
+                        await self.telegram_bot_erro.envia_mensagem(f'ganho real\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}')
+                        self.perda_acumulada = 0.0
+                        self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')                                    
+                    else:                        
+                        if self.perda_acumulada < valor_ganho:
+                            await self.telegram_bot_erro.envia_mensagem(f'ganho real\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}')
+                            self.perda_acumulada = 0.0
+                        else:                        
+                            await self.telegram_bot.envia_mensagem(f'recuperou\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}')
+                            self.perda_acumulada -= valor_ganho                        
+
+                        self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w') 
+
+                    if self.qt_apostas_feitas <= 2:
+                        self.qt_apostas_feitas = 3
+                        self.is_for_real = False
+                    else:
+                        self.qt_apostas_feitas = 0
+                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')     
+
+                if self.qt_apostas_feitas >= 2:
+                    self.is_for_real = False       
+            except Exception as e:
+                print(e)
+
+            print(f'SALDO ATUAL: {self.saldo:.2f}')
+        except Exception as e:
+            print(e)
+            self.testa_sessao()
+            print('Algo saiu errada no espera_resultado')
+
+
+    async def espera_resultado_jogo_sem_aposta(self, horario_jogo):
+
+        try:
+            horario = horario_jogo
+            print('HORÁRIO',  horario )
+            print('Esperando resultado da partida sem aposta...')
             #self.telegram_bot.envia_mensagem(f'esperando resultado aposta {horario}\nnumero reds: {self.numero_reds}')
             hora = int(horario.split(':')[0])
             minuto = int(horario.split(':')[1])
             now = datetime.today()  
             hora_do_jogo = datetime( now.year, now.month, now.day, hora, minuto, 0)
-            pause.until( hora_do_jogo + timedelta(minutes=1, seconds=10)  )
-            self.jogos_computados += 1
-            self.escreve_em_arquivo( 'jogos_computados.txt', f'{self.jogos_computados}', 'w' )
-            self.atualiza_horario_jogos()
+            try:
+                await self.telegram_bot.envia_mensagem(f'ESPERANDO RESULTADO: {horario}')
+            except Exception as e:
+                print(e)
+
+            pause.until( hora_do_jogo + timedelta(minutes=1, seconds=20)  )
         except:
             print('algo saiu errado no espera resultado sem aposta')
 
@@ -1099,59 +1330,943 @@ class ChromeAuto():
             return 0
             print(e)
 
-    def multipla_zebra(self):
+    async def multipla_zebra(self):
         print('multipla zebra')
-        horario_jogo_copa = input('hora jogo copa')
-        horario_jogo_champions = input('hora jogo champions')
-        hora_jogo_atual = None
-        self.qt_apostas_feitas = 0
-        self.varios_jogos = False
+        self.qt_apostas_feitas = self.le_de_arquivo('qt_apostas_feitas.txt', 'int')
+        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
+        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')        
+        url_superliga = "https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/superliga-américa-do-sul-103548"
+        url_champions_cup = "https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/champions-cup-100199"
+        self.le_saldo()
+
+        try:
+            jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+            while jogos_abertos['summary']['openBetsCount'] == 1:
+                self.saldo_antes_aposta = self.saldo
+                print('jogo aberto...')
+                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                sleep(30)
+        
+            jogos_encerrados = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=2"); return await d.json();')
+            jogo_encerrado = jogos_encerrados['betslips'][0]
+            if jogo_encerrado['state'] == 'Won':
+
+                self.le_saldo()
+                print('saldo depois do resultado ', self.saldo )
+
+                while self.saldo < self.saldo_antes_aposta:
+                    print('saldo desatualizado')
+                    self.le_saldo()
+                    sleep(5)
+
+                self.meta_ganho = self.saldo * 0.01
+                self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                
+
+                await self.telegram_bot_erro.envia_mensagem(f'ganhou\nmeta de ganho: {self.meta_ganho:.2f}')
+                self.perda_acumulada = 0.0
+                self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
+                
+                self.qt_apostas_feitas = 0
+                self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')                
+        except Exception as e:
+            print(e)
 
         while True:
-            numero_apostas = 0
-            aba = 1
-            while numero_apostas <= 2:
 
-                url = None
-                if aba == 1:
-                    url = 'https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/copa-do-mundo-100204'
-                    hora_jogo_atual = horario_jogo_copa
-                    horario_jogo_copa = self.define_hora_jogo(hora_jogo_atual)
+            try:
+
+                jogos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/cds-api/bettingoffer/virtual/sports?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&scheduleSize=10"); return await d.json();')
+
+                futebol_virtual = None
+
+                for sport in jogos:
+                    if int( sport['sport']['id'] ) == 101:
+                        futebol_virtual = sport['competitions']
+                        break
+
+                index_jogo = 0
+
+                proximo_jogo_superliga = futebol_virtual[0]['schedule'][index_jogo]
+                superliga_id = futebol_virtual[0]['competition']['id']
+                proximo_jogo_champions_cup = futebol_virtual[1]['schedule'][index_jogo]
+                champions_id = futebol_virtual[1]['competition']['id']
+
+                index_jogo = 1
+
+                # print(f"id: {proximo_jogo_superliga['id']} horario de inicio: {proximo_jogo_superliga['startDate']}" )
+                # print(f"id: {proximo_jogo_champions_cup['id']} horario de inicio: {proximo_jogo_champions_cup['startDate']}"  )
+
+                proximo_jogo_superliga = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={superliga_id}&fixtureIds={proximo_jogo_superliga['id']}&scheduleSize=10'); return await d.json();")
+                proximo_jogo_champions_cup = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={champions_id}&fixtureIds={proximo_jogo_champions_cup['id']}&scheduleSize=10'); return await d.json();")
+
+                super_liga_start_date = proximo_jogo_superliga['fixture']['startDate']            
+                super_liga_start_date = datetime.strptime( super_liga_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                super_liga_start_date = super_liga_start_date - timedelta(hours=3)
+                super_liga_start_date_string = super_liga_start_date.strftime( '%H:%M' )
+
+                champions_cup_start_date = proximo_jogo_champions_cup['fixture']['startDate']
+                champions_cup_start_date = datetime.strptime( champions_cup_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                champions_cup_start_date = champions_cup_start_date - timedelta(hours=3)
+                champions_cup_start_date_string = champions_cup_start_date.strftime( '%H:%M' )
+
+                print( super_liga_start_date_string, champions_cup_start_date_string)
+
+                while super_liga_start_date <= datetime.now() or champions_cup_start_date <= datetime.now():
+                    proximo_jogo_superliga = futebol_virtual[0]['schedule'][index_jogo]
+                    superliga_id = futebol_virtual[0]['competition']['id']
+                    proximo_jogo_champions_cup = futebol_virtual[1]['schedule'][index_jogo]
+                    champions_id = futebol_virtual[1]['competition']['id']                
+
+                    proximo_jogo_superliga = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={superliga_id}&fixtureIds={proximo_jogo_superliga['id']}&scheduleSize=10'); return await d.json();")
+                    proximo_jogo_champions_cup = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={champions_id}&fixtureIds={proximo_jogo_champions_cup['id']}&scheduleSize=10'); return await d.json();")
+
+                    super_liga_start_date = proximo_jogo_superliga['fixture']['startDate']            
+                    super_liga_start_date = datetime.strptime( super_liga_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                    super_liga_start_date = super_liga_start_date - timedelta(hours=3)
+                    super_liga_start_date_string = super_liga_start_date.strftime( '%H:%M' )
+
+                    champions_cup_start_date = proximo_jogo_champions_cup['fixture']['startDate']
+                    champions_cup_start_date = datetime.strptime( champions_cup_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                    champions_cup_start_date = champions_cup_start_date - timedelta(hours=3)
+                    champions_cup_start_date_string = champions_cup_start_date.strftime( '%H:%M' )
+
+                    print( super_liga_start_date_string, champions_cup_start_date_string)
+
+                    index_jogo += 1
+
+                for option_market in proximo_jogo_superliga['fixture']['optionMarkets']:
+                    if option_market['name']['value'].lower() == 'resultado da partida':
+                        proximo_jogo_superliga = option_market['options']
+                        break
+
+                for option_market in proximo_jogo_champions_cup['fixture']['optionMarkets']:
+                    if option_market['name']['value'].lower() == 'resultado da partida':
+                        proximo_jogo_champions_cup = option_market['options']
+                        break
+
+                jogo_superliga_dict = dict()
+                jogo_superliga_dict['horario'] = super_liga_start_date_string
+                jogo_superliga_dict['casa'] = dict()
+                jogo_superliga_dict['casa']['optionid'] = proximo_jogo_superliga[0]['id']
+                jogo_superliga_dict['casa']['odd'] = float( proximo_jogo_superliga[0]['price']['odds'] )
+                jogo_superliga_dict['fora'] = dict()
+                jogo_superliga_dict['fora']['optionid'] = proximo_jogo_superliga[2]['id']
+                jogo_superliga_dict['fora']['odd'] = float( proximo_jogo_superliga[2]['price']['odds'] )
+
+                jogo_champions_cup_dict = dict()
+                jogo_champions_cup_dict['horario'] = champions_cup_start_date_string
+                jogo_champions_cup_dict['casa'] = dict()
+                jogo_champions_cup_dict['casa']['optionid'] = proximo_jogo_champions_cup[0]['id']
+                jogo_champions_cup_dict['casa']['odd'] = float( proximo_jogo_champions_cup[0]['price']['odds'] )
+                jogo_champions_cup_dict['fora'] = dict()
+                jogo_champions_cup_dict['fora']['optionid'] = proximo_jogo_champions_cup[2]['id']
+                jogo_champions_cup_dict['fora']['odd'] = float( proximo_jogo_champions_cup[2]['price']['odds'] )
+                
+                jogo_superliga_option = None
+
+                if jogo_superliga_dict['casa']['odd'] >= jogo_superliga_dict['fora']['odd']:
+                    jogo_superliga_option = jogo_superliga_dict['casa']['optionid']
                 else:
-                    url = 'https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/champions-cup-100199'  
-                    hora_jogo_atual = horario_jogo_champions
-                    horario_jogo_champions = self.define_hora_jogo(hora_jogo_atual)
+                    jogo_superliga_option = jogo_superliga_dict['fora']['optionid']
 
-                self.chrome.get(url)
+                jogo_champions_cup_option = None
+
+                if jogo_champions_cup_dict['casa']['odd'] >= jogo_champions_cup_dict['fora']['odd']:
+                    jogo_champions_cup_option = jogo_champions_cup_dict['casa']['optionid']
+                else:
+                    jogo_champions_cup_option = jogo_champions_cup_dict['fora']['optionid']
+
+                n_jogos_clicados = 0
+
+                self.chrome.get(url_superliga)
                 self.chrome.maximize_window()
                 self.chrome.fullscreen_window()
 
-                if self.clica_horario_jogo(f"//*[normalize-space(text()) = '{hora_jogo_atual}']"):
-                    numero_apostas += self.seleciona_zebra()
+                self.clica_horario_jogo(f"//*[normalize-space(text()) = '{super_liga_start_date_string}']")
 
-                if numero_apostas == 2:
-                    self.valor_aposta = 1
+                n_jogos_clicados += 1
 
-                    # caso haja algum jogo no cupom a gente vai tentar limpar
+                print('jogo super liga ', jogo_superliga_option)
+
+                option = WebDriverWait(self.chrome, 10).until(
+                            EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{jogo_superliga_option}"]' ) ))
+                option.click()
+
+                sleep(2)
+
+                self.chrome.get(url_champions_cup)
+                self.chrome.maximize_window()
+                self.chrome.fullscreen_window()
+
+                self.clica_horario_jogo(f"//*[normalize-space(text()) = '{champions_cup_start_date_string}']")
+
+                n_jogos_clicados += 1
+
+                print('jogo super liga ', jogo_champions_cup_option)
+                
+                option = WebDriverWait(self.chrome, 10).until(
+                            EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{jogo_champions_cup_option}"]' ) ))
+                option.click()
+
+                sleep(2)
+
+                cota = WebDriverWait(self.chrome, 10).until(
+                                                EC.presence_of_element_located((By.CLASS_NAME, "betslip-summary__original-odds") )) 
+                cota = float( cota.get_property('innerText') )
+
+                if n_jogos_clicados < 2:
                     try:
                         self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
                         self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
                     except Exception as e:
                         print('Não conseguiu limpar os jogos...')
                         print(e)
+                    self.testa_sessao()
+                    continue
 
-                    if self.insere_valor(None):
-                        self.espera_resultado_jogo(hora_jogo_atual)
-                        numero_apostas = 0
+                self.valor_aposta = ( ( self.meta_ganho + self.perda_acumulada ) / ( cota - 1 ) ) + 0.01                                
+
+                if self.valor_aposta > self.saldo:
+                    try:
+                        await self.telegram_bot_erro.envia_mensagem('MIOU')
+                    except:
+                        print('Não foi possível enviar mensagem ao telegram.')
+                    self.chrome.quit()
+                    exit()
+
+                await self.insere_valor(None)
+
+                horario_jogo_mais_tarde = None
+                if super_liga_start_date > champions_cup_start_date:
+                    horario_jogo_mais_tarde = super_liga_start_date_string
+                else:
+                    horario_jogo_mais_tarde = champions_cup_start_date_string
+
+                await self.espera_resultado_jogo(horario_jogo_mais_tarde)
+            except Exception as e:
+                print(e)
+                try:
+                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+                except Exception as e:
+                    print('Não conseguiu limpar os jogos...')
+                    print(e)
+                self.testa_sessao()
+            # numero_apostas = 0
+            # aba = 1
+            # while numero_apostas <= 2:
+
+            #     url = None
+            #     if aba == 1:
+            #         url = 'https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/copa-do-mundo-100204'
+            #         hora_jogo_atual = horario_jogo_copa
+            #         horario_jogo_copa = self.define_hora_jogo(hora_jogo_atual)
+            #     else:
+            #         url = 'https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/champions-cup-100199'  
+            #         hora_jogo_atual = horario_jogo_champions
+            #         horario_jogo_champions = self.define_hora_jogo(hora_jogo_atual)
+
+            #     self.chrome.get(url)
+            #     self.chrome.maximize_window()
+            #     self.chrome.fullscreen_window()
+
+            #     if self.clica_horario_jogo(f"//*[normalize-space(text()) = '{hora_jogo_atual}']"):
+            #         numero_apostas += self.seleciona_zebra()
+
+            #     if numero_apostas == 2:
+            #         self.valor_aposta = 1
+
+            #         # caso haja algum jogo no cupom a gente vai tentar limpar
+            #         try:
+            #             self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+            #             self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+            #         except Exception as e:
+            #             print('Não conseguiu limpar os jogos...')
+            #             print(e)
+
+            #         if self.insere_valor(None):
+            #             self.espera_resultado_jogo(hora_jogo_atual)
+            #             numero_apostas = 0
 
 
-                if horario_jogo_copa == '20:56':
-                    horario_jogo_copa = '21:05'
+            #     if horario_jogo_copa == '20:56':
+            #         horario_jogo_copa = '21:05'
 
-                if horario_jogo_champions == '20:58':
-                    horario_jogo_champions = '21:01'
+            #     if horario_jogo_champions == '20:58':
+            #         horario_jogo_champions = '21:01'
 
-                aba = 1 if aba == 2 else 2
+            #     aba = 1 if aba == 2 else 2
+    
+    async def tres_jogos_dutching(self):
+        print('multipla zebra')
+        self.qt_apostas_feitas = self.le_de_arquivo('qt_apostas_feitas.txt', 'int')
+        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
+        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')        
+        
+        url_superliga = "https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/superliga-américa-do-sul-103548"
+        url_champions_cup = "https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/champions-cup-100199"
+        self.le_saldo()
+
+        try:
+            jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+            while jogos_abertos['summary']['openBetsCount'] > 0:
+                self.saldo_antes_aposta = self.saldo
+                print('jogo aberto...')
+                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                sleep(10)
+        
+            jogos_encerrados = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=3&typeFilter=2"); return await d.json();')
+            jogo_encerrado = jogos_encerrados['betslips'][0]
+            jogo_encerrado_2 = jogos_encerrados['betslips'][1]
+            jogo_encerrado_3 = jogos_encerrados['betslips'][2]
+            if jogo_encerrado['state'] == 'Won' or jogo_encerrado_2['state'] == 'Won':
+
+                self.le_saldo()
+                print('saldo depois do resultado ', self.saldo )
+
+                while self.saldo < self.saldo_antes_aposta:
+                    print('saldo desatualizado')
+                    self.le_saldo()
+                    sleep(5)
+
+                # self.meta_ganho = self.saldo * 0.01
+                # self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                
+
+                await self.telegram_bot_erro.envia_mensagem(f'ganhou\nmeta de ganho: {self.meta_ganho:.2f}')
+
+                if self.qt_apostas_feitas <= 2:
+                    self.perda_acumulada = 0.0
+                    self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
+
+                if self.qt_apostas_feitas <= 2:
+                    self.qt_apostas_feitas = 3
+                else:
+                    self.qt_apostas_feitas = 0                
+                
+                self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')                
+        except Exception as e:
+            print('exception 1')
+            self.testa_sessao()
+            print(e)
+
+        while True:
+
+            horario_jogo_mais_tarde = None
+
+            try:
+
+                jogos = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/sports?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&scheduleSize=10', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")
+
+                futebol_virtual = None
+
+                for sport in jogos:
+                    if int( sport['sport']['id'] ) == 101:
+                        futebol_virtual = sport['competitions']
+                        break
+
+                superliga_id = futebol_virtual[0]['competition']['id']                
+                champions_id = futebol_virtual[1]['competition']['id']
+
+                index_jogo = 0
+
+                # print(f"id: {proximo_jogo_superliga['id']} horario de inicio: {proximo_jogo_superliga['startDate']}" )
+                # print(f"id: {proximo_jogo_champions_cup['id']} horario de inicio: {proximo_jogo_champions_cup['startDate']}"  )
+
+                proximo_jogo_superliga = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={superliga_id}&scheduleSize=10'); return await d.json();")
+                proximo_jogo_champions_cup = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={champions_id}&scheduleSize=10'); return await d.json();")
+
+                super_liga_start_date = proximo_jogo_superliga['schedule'][index_jogo]['startDate']            
+                super_liga_start_date = datetime.strptime( super_liga_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                super_liga_start_date = super_liga_start_date - timedelta(hours=3)
+                super_liga_start_date_string = super_liga_start_date.strftime( '%H:%M' )
+
+                print('horario super liga ', super_liga_start_date_string )
+
+                champions_cup_start_date = proximo_jogo_champions_cup['schedule'][index_jogo]['startDate']
+                champions_cup_start_date = datetime.strptime( champions_cup_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                champions_cup_start_date = champions_cup_start_date - timedelta(hours=3)
+                champions_cup_start_date_string = champions_cup_start_date.strftime( '%H:%M' )
+
+                print('horario champions ', champions_cup_start_date_string )
+
+                id_jogos_superliga = list( map( lambda el: el['id'], proximo_jogo_superliga['schedule'] ) )
+
+                while super_liga_start_date <= datetime.now() + timedelta(minutes=1):                    
+
+                    proximo_jogo_superliga = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={superliga_id}&fixtureIds={id_jogos_superliga[index_jogo]}&scheduleSize=10'); return await d.json();")                    
+
+                    super_liga_start_date = proximo_jogo_superliga['fixture']['startDate']            
+                    super_liga_start_date = datetime.strptime( super_liga_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                    super_liga_start_date = super_liga_start_date - timedelta(hours=3)
+                    super_liga_start_date_string = super_liga_start_date.strftime( '%H:%M' )     
+
+                    print('horario super liga ', super_liga_start_date_string )               
+
+                    index_jogo += 1
+
+                index_jogo = 0
+
+                id_jogos_champions_cup = list( map( lambda el: el['id'], proximo_jogo_champions_cup['schedule'] ) )
+
+                while champions_cup_start_date <= datetime.now() + timedelta(minutes=1):                                                      
+
+                    proximo_jogo_champions_cup = proximo_jogo_champions_cup['schedule'][index_jogo]
+                    champions_id = futebol_virtual[1]['competition']['id']                
+                    
+                    proximo_jogo_champions_cup = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={champions_id}&fixtureIds={id_jogos_champions_cup[index_jogo]}&scheduleSize=10'); return await d.json();")
+
+                    champions_cup_start_date = proximo_jogo_champions_cup['fixture']['startDate']
+                    champions_cup_start_date = datetime.strptime( champions_cup_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                    champions_cup_start_date = champions_cup_start_date - timedelta(hours=3)
+                    champions_cup_start_date_string = champions_cup_start_date.strftime( '%H:%M' )          
+
+                    print('horario champions ', champions_cup_start_date_string )      
+
+                    index_jogo += 1
+
+                if super_liga_start_date_string != champions_cup_start_date_string:
+                    continue
+
+                for option_market in proximo_jogo_superliga['fixture']['optionMarkets']:
+                    if option_market['name']['value'].lower() == 'resultado da partida':
+                        proximo_jogo_superliga = option_market['options']
+                        break
+
+                for option_market in proximo_jogo_champions_cup['fixture']['optionMarkets']:
+                    if option_market['name']['value'].lower() == 'resultado da partida':
+                        proximo_jogo_champions_cup = option_market['options']
+                        break
+
+                jogo_superliga_dict = dict()
+                jogo_superliga_dict['horario'] = super_liga_start_date_string
+                jogo_superliga_dict['casa'] = dict()
+                jogo_superliga_dict['casa']['optionid'] = proximo_jogo_superliga[0]['id']
+                jogo_superliga_dict['casa']['odd'] = float( proximo_jogo_superliga[0]['price']['odds'] )
+                jogo_superliga_dict['fora'] = dict()
+                jogo_superliga_dict['fora']['optionid'] = proximo_jogo_superliga[2]['id']
+                jogo_superliga_dict['fora']['odd'] = float( proximo_jogo_superliga[2]['price']['odds'] )
+                jogo_superliga_dict['empate'] = dict()
+                jogo_superliga_dict['empate']['optionid'] = proximo_jogo_superliga[1]['id']
+                jogo_superliga_dict['empate']['odd'] = float( proximo_jogo_superliga[1]['price']['odds'] )
+
+                jogo_champions_cup_dict = dict()
+                jogo_champions_cup_dict['horario'] = champions_cup_start_date_string
+                jogo_champions_cup_dict['casa'] = dict()
+                jogo_champions_cup_dict['casa']['optionid'] = proximo_jogo_champions_cup[0]['id']
+                jogo_champions_cup_dict['casa']['odd'] = float( proximo_jogo_champions_cup[0]['price']['odds'] )
+                jogo_champions_cup_dict['fora'] = dict()
+                jogo_champions_cup_dict['fora']['optionid'] = proximo_jogo_champions_cup[2]['id']
+                jogo_champions_cup_dict['fora']['odd'] = float( proximo_jogo_champions_cup[2]['price']['odds'] )
+                jogo_champions_cup_dict['empate'] = dict()
+                jogo_champions_cup_dict['empate']['optionid'] = proximo_jogo_champions_cup[1]['id']
+                jogo_champions_cup_dict['empate']['odd'] = float( proximo_jogo_champions_cup[1]['price']['odds'] )
+                
+
+                combinacoes = [{'odd': jogo_superliga_dict['casa']['odd'] * jogo_champions_cup_dict['empate']['odd'], 
+                                     'option1': jogo_superliga_dict['casa']['optionid'], 
+                                     'option2': jogo_champions_cup_dict['empate']['optionid'] },
+                                {'odd': jogo_superliga_dict['empate']['odd'] * jogo_champions_cup_dict['casa']['odd'], 
+                                     'option1': jogo_superliga_dict['empate']['optionid'], 
+                                     'option2': jogo_champions_cup_dict['casa']['optionid'] },
+                                {'odd': jogo_superliga_dict['fora']['odd'] * jogo_champions_cup_dict['empate']['odd'], 
+                                     'option1': jogo_superliga_dict['fora']['optionid'], 
+                                     'option2': jogo_champions_cup_dict['empate']['optionid'] },
+                                {'odd': jogo_superliga_dict['empate']['odd'] * jogo_champions_cup_dict['fora']['odd'], 
+                                     'option1': jogo_superliga_dict['empate']['optionid'], 
+                                     'option2': jogo_champions_cup_dict['fora']['optionid'] } ]
+                
+                combinacoes = list( sorted( combinacoes, key=lambda el: el['odd'] ) )
+
+                combinacoes.pop()
+
+                array_resultado = calcula_dutching( [combinacoes[0]['odd'], combinacoes[1]['odd']], self.perda_acumulada + self.meta_ganho )
+
+                if self.qt_apostas_feitas >= 2:
+                    array_resultado = [0.1, 0.1]
+
+                if super_liga_start_date > champions_cup_start_date:
+                    horario_jogo_mais_tarde = super_liga_start_date_string
+                else:
+                    horario_jogo_mais_tarde = champions_cup_start_date_string
+
+                for index, c in enumerate(combinacoes):
+
+                    if index == 2:
+                        break
+
+                    cota = 0.0
+
+                    while cota < 5:
+
+                        try:
+                            self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
+                        except:
+                            print('Erro ao tentar fechar banner')  
+
+                        try:
+                            self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+                            self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+                        except Exception as e:                        
+                            print('Não conseguiu limpar os jogos...')
+                            print(e)
+
+                        self.chrome.get(url_superliga)
+                        self.chrome.maximize_window()
+                        self.chrome.fullscreen_window()
+
+                        clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{super_liga_start_date_string}']")
+                        count = 0
+                        while not clicou and count < 5:
+                            try:
+                                self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
+                            except:
+                                print('Erro ao tentar fechar banner')      
+                            clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{super_liga_start_date_string}']")
+                            count += 1
+
+                        if count == 5:
+                            self.testa_sessao()                            
+                            raise Exception('raise exception 1')
+
+                        c_option = c['option1']
+
+                        clicou = False
+                        count = 0
+                        while not clicou and count < 5:
+                            try:
+                                option = WebDriverWait(self.chrome, 10).until(
+                                        EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{c_option}"]' ) ))
+                                option.click()
+                                clicou = True
+                            except Exception as e:
+                                count += 1
+                                try:
+                                    self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
+                                except:
+                                    print('Erro ao tentar fechar banner')
+                                print('exception 2')
+                                print(e)
+
+                        if count == 5:
+                            self.testa_sessao()
+                            raise Exception('raise exception 2')
+                        
+                        sleep(1)                        
+
+                        count = 0
+                        texto = ''
+                        while texto.lower() != 'resultado da partida' and count < 10:
+                            try:
+                                cupom = WebDriverWait(self.chrome, 10 ).until(
+                                            EC.presence_of_element_located((By.CSS_SELECTOR, '.betslip-digital-pick__line-1.ng-star-inserted' ) ))
+                                if cupom != None and cupom.get_property('innerText') != None:
+                                    texto = cupom.get_property('innerText').lower().strip()
+                                    print(texto)                                    
+                            except Exception as e:
+                                sleep(0.5)
+                                count += 1
+
+                        if count == 10:
+                            self.testa_sessao()
+                            raise Exception('raise exception 3')
+
+                        sleep(1)                        
+
+                        self.chrome.get(url_champions_cup)
+                        self.chrome.maximize_window()
+                        self.chrome.fullscreen_window()
+
+                        clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{champions_cup_start_date_string}']")
+                        count = 0
+                        while not clicou and count < 5:
+                            try:
+                                self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
+                            except:
+                                print('Erro ao tentar fechar banner')   
+                            clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{champions_cup_start_date_string}']")
+                            count += 1
+                        
+                        if count == 5:
+                            self.testa_sessao()
+                            raise Exception('raise exception 3')
+
+                        c_option = c['option2']
+                        
+                        clicou = False
+                        count = 0
+                        while not clicou and count < 5:
+                            try:
+                                option = WebDriverWait(self.chrome, 10).until(
+                                        EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{c_option}"]' ) ))
+                                option.click()
+                                clicou = True
+                            except Exception as e:
+                                count += 1
+                                try:
+                                    self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
+                                except:
+                                    print('Erro ao tentar fechar banner')
+                                print('exception 3')
+                                print(e)
+
+                        if count == 5:
+                            self.testa_sessao()
+                            raise Exception('raise exception 4')
+
+                        sleep(1)
+
+                        count = 0
+                        texto = ''
+                        while texto.lower() != 'resultado da partida' and count < 10:
+                            try:
+                                cupom = WebDriverWait(self.chrome, 10).until(
+                                            EC.presence_of_element_located((By.CSS_SELECTOR, "bs-digital-combo-bet-pick > div[class='betslip-digital-bet-pick-column-1 betslip-digital-pick-option-market ng-star-inserted'] > div[class='betslip-digital-pick__line-1 ng-star-inserted']" ) ))
+                                if cupom != None and cupom.get_property('innerText') != None:
+                                    texto = cupom.get_property('innerText').lower().strip()
+                                    print(texto)
+                            except Exception as e:
+                                sleep(0.5)
+                                count += 1
+
+                        if count == 10:
+                            self.testa_sessao()
+                            raise Exception('raise exception 3')
+
+                        cota = WebDriverWait(self.chrome, 10).until(
+                                                    EC.presence_of_element_located((By.CLASS_NAME, "betslip-summary__original-odds") )) 
+                        cota = float( cota.get_property('innerText') )
+                        print( cota )
+
+                    self.valor_aposta = array_resultado[index]
+                    await self.insere_valor_dutching(None)
+
+
+                try:
+                    self.qt_apostas_feitas += 1
+                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')
+
+                    self.perda_acumulada += sum(array_resultado)                    
+                    self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+
+                    self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+                    try:                    
+                        await self.telegram_bot.envia_mensagem(f"APOSTA {self.qt_apostas_feitas} REALIZADA.")
+                        self.horario_ultima_checagem = datetime.now()
+                    except Exception as e:
+                        print(e)
+
+                    self.primeiro_alerta_depois_do_jogo = True
+                    self.primeiro_alerta_sem_jogos_elegiveis = True                    
+                    self.le_saldo()
+
+                    self.saldo_antes_aposta = self.saldo
+                    self.escreve_em_arquivo('saldo_antes_aposta.txt', f'{self.saldo_antes_aposta:.2f}', 'w')
+                    # if id_jogo:
+                    #     self.jogos_inseridos.append(f"{id_jogo['id']}{id_jogo['tempo']}{id_jogo['mercado']}")
+                    #     self.save_array_on_disk('jogos_inseridos.txt', self.jogos_inseridos)
+                    self.numero_apostas_feitas = 0
+                except Exception as e:
+                    print(e)
+
+                await self.espera_resultado_jogo(horario_jogo_mais_tarde)
+            except Exception as e:
+                print(e)
+                try:
+                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+                except Exception as e:
+                    print('Não conseguiu limpar os jogos...')
+                    print(e)
+                self.testa_sessao()
+                self.aposta_com_erro = True
+                await self.espera_resultado_jogo(horario_jogo_mais_tarde)
+            # numero_apostas = 0
+            # aba = 1
+            # while numero_apostas <= 2:
+
+            #     url = None
+            #     if aba == 1:
+            #         url = 'https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/copa-do-mundo-100204'
+            #         hora_jogo_atual = horario_jogo_copa
+            #         horario_jogo_copa = self.define_hora_jogo(hora_jogo_atual)
+            #     else:
+            #         url = 'https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/champions-cup-100199'  
+            #         hora_jogo_atual = horario_jogo_champions
+            #         horario_jogo_champions = self.define_hora_jogo(hora_jogo_atual)
+
+            #     self.chrome.get(url)
+            #     self.chrome.maximize_window()
+            #     self.chrome.fullscreen_window()
+
+            #     if self.clica_horario_jogo(f"//*[normalize-space(text()) = '{hora_jogo_atual}']"):
+            #         numero_apostas += self.seleciona_zebra()
+
+            #     if numero_apostas == 2:
+            #         self.valor_aposta = 1
+
+            #         # caso haja algum jogo no cupom a gente vai tentar limpar
+            #         try:
+            #             self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+            #             self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+            #         except Exception as e:
+            #             print('Não conseguiu limpar os jogos...')
+            #             print(e)
+
+            #         if self.insere_valor(None):
+            #             self.espera_resultado_jogo(hora_jogo_atual)
+            #             numero_apostas = 0
+
+
+            #     if horario_jogo_copa == '20:56':
+            #         horario_jogo_copa = '21:05'
+
+            #     if horario_jogo_champions == '20:58':
+            #         horario_jogo_champions = '21:01'
+
+            #     aba = 1 if aba == 2 else 2
+
+       
+    async def empate(self):
+        print('empate')
+        self.qt_apostas_feitas = self.le_de_arquivo('qt_apostas_feitas.txt', 'int')
+        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
+        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')      
+        self.le_saldo()
+        self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                  
+        
+        url_champions_cup = "https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/champions-cup-100199"
+        if self.saldo == 0.0:
+            self.le_saldo()
+            self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+
+        self.chrome.get(url_champions_cup)
+        self.chrome.maximize_window()
+        self.chrome.fullscreen_window()
+
+        try:        
+            jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+            if jogos_abertos['summary']['openBetsCount'] > 0:
+                jogo_encerrado = jogos_abertos['betslips'][0]           
+
+                hora_ultima_aposta = jogo_encerrado['bets'][0]['fixture']['date']            
+
+                hora_ultima_aposta = datetime.strptime( hora_ultima_aposta, '%Y-%m-%dT%H:%M:%SZ' )
+                hora_ultima_aposta = hora_ultima_aposta - timedelta(hours=3)
+                
+                hora_ultima_aposta = hora_ultima_aposta.strftime( '%H:%M' )
+
+                await self.espera_resultado_jogo_empate(hora_ultima_aposta)
+
+        except Exception as e:
+            print('exception 1')
+            self.testa_sessao()
+            print(e)
+
+        while True:
+
+            try:
+
+                jogos = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/sports?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&scheduleSize=10', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")
+
+                futebol_virtual = None
+
+                for sport in jogos:
+                    if int( sport['sport']['id'] ) == 101:
+                        futebol_virtual = sport['competitions']
+                        break
+
+                champions_id = futebol_virtual[1]['competition']['id']
+
+                index_jogo = 0
+                
+                proximo_jogo_champions_cup = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={champions_id}&scheduleSize=10'); return await d.json();")
+
+                champions_cup_start_date = proximo_jogo_champions_cup['schedule'][index_jogo]['startDate']
+                champions_cup_start_date = datetime.strptime( champions_cup_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                champions_cup_start_date = champions_cup_start_date - timedelta(hours=3)
+                champions_cup_start_date_string = champions_cup_start_date.strftime( '%H:%M' )
+
+                index_jogo = 0
+
+                id_jogos_champions_cup = list( map( lambda el: el['id'], proximo_jogo_champions_cup['schedule'] ) )
+
+                while champions_cup_start_date <= datetime.now():                                                      
+
+                    proximo_jogo_champions_cup = proximo_jogo_champions_cup['schedule'][index_jogo]
+                    champions_id = futebol_virtual[1]['competition']['id']                
+                    
+                    proximo_jogo_champions_cup = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/virtual/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&sportIds=101&competitionIds={champions_id}&fixtureIds={id_jogos_champions_cup[index_jogo]}&scheduleSize=10'); return await d.json();")
+
+                    champions_cup_start_date = proximo_jogo_champions_cup['fixture']['startDate']
+                    champions_cup_start_date = datetime.strptime( champions_cup_start_date, '%Y-%m-%dT%H:%M:%SZ' )
+                    champions_cup_start_date = champions_cup_start_date - timedelta(hours=3)
+                    champions_cup_start_date_string = champions_cup_start_date.strftime( '%H:%M' )          
+
+                    print('horario champions ', champions_cup_start_date_string )      
+
+                    index_jogo += 1
+
+                if not self.is_for_real:
+                    await self.espera_resultado_jogo_sem_aposta(champions_cup_start_date_string)
+                    jogo_empatado = empatou()
+                    if jogo_empatado == None:
+                        print('jogo com erro')                                                
+                    elif jogo_empatado == True:
+                        self.is_for_real = True
+                        self.qt_apostas_feitas = 0
+                        print('jogo empatado')
+                        self.numero_reds = 0
+                    elif jogo_empatado == False:                        
+                        print('jogo não saiu empatado')
+                    continue
+
+                for option_market in proximo_jogo_champions_cup['fixture']['optionMarkets']:
+                    if option_market['name']['value'].lower() == 'resultado da partida':
+                        proximo_jogo_champions_cup = option_market['options']
+                        break
+
+                jogo_champions_cup_dict = dict()
+                jogo_champions_cup_dict['horario'] = champions_cup_start_date_string
+                jogo_champions_cup_dict['casa'] = dict()
+                jogo_champions_cup_dict['casa']['optionid'] = proximo_jogo_champions_cup[0]['id']
+                jogo_champions_cup_dict['casa']['odd'] = float( proximo_jogo_champions_cup[0]['price']['odds'] )
+                jogo_champions_cup_dict['fora'] = dict()
+                jogo_champions_cup_dict['fora']['optionid'] = proximo_jogo_champions_cup[2]['id']
+                jogo_champions_cup_dict['fora']['odd'] = float( proximo_jogo_champions_cup[2]['price']['odds'] )
+                jogo_champions_cup_dict['empate'] = dict()
+                jogo_champions_cup_dict['empate']['optionid'] = proximo_jogo_champions_cup[1]['id']
+                jogo_champions_cup_dict['empate']['odd'] = float( proximo_jogo_champions_cup[1]['price']['odds'] )                                
+
+                if self.qt_apostas_feitas >= 2:
+                    self.valor_aposta = 0.1
+                else:
+                    self.valor_aposta = self.meta_ganho + self.perda_acumulada
+
+                try:
+                    self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
+                except:
+                    print('Erro ao tentar fechar banner')  
+
+                try:
+                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+                except Exception as e:                        
+                    print('Não conseguiu limpar os jogos...')
+                    print(e)                        
+
+                clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{champions_cup_start_date_string}']")
+                count = 0
+                while not clicou and count < 5:
+                    self.testa_sessao()
+                    self.chrome.get(url_champions_cup)
+                    self.chrome.maximize_window()
+                    self.chrome.fullscreen_window()
+
+                    try:
+                        self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
+                    except:
+                        print('Erro ao tentar fechar banner')   
+
+                    clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{champions_cup_start_date_string}']")
+                    count += 1
+                
+                if count == 5:
+                    self.testa_sessao()
+                    raise Exception('raise exception 3')
+
+                c_option = jogo_champions_cup_dict['empate']['optionid']
+                
+                clicou = False
+                count = 0
+                while not clicou and count < 5:
+                    try:
+                        option = WebDriverWait(self.chrome, 10).until(
+                                EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{c_option}"]' ) ))
+                        option.click()
+                        clicou = True
+                    except Exception as e:
+                        count += 1
+                        try:
+                            self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
+                        except:
+                            print('Erro ao tentar fechar banner')
+                        print('exception 3')
+                        print(e)
+
+                if count == 5:
+                    self.testa_sessao()
+                    raise Exception('raise exception 4')
+
+                sleep(1)
+
+                count = 0
+                texto = ''
+                while texto.lower() != 'resultado da partida' and count < 10:
+                    try:
+                        cupom = WebDriverWait(self.chrome, 10).until(
+                                    EC.presence_of_element_located((By.CSS_SELECTOR, ".betslip-digital-pick__line-1.ng-star-inserted" ) ))
+                        if cupom != None and cupom.get_property('innerText') != None:
+                            texto = cupom.get_property('innerText').lower().strip()
+                            print(texto)
+                    except Exception as e:
+                        sleep(0.5)
+                        count += 1
+
+                if count == 10:
+                    self.testa_sessao()
+                    raise Exception('raise exception 5')
+
+                cota = WebDriverWait(self.chrome, 10).until(
+                                            EC.presence_of_element_located((By.CLASS_NAME, "betslip-summary__original-odds") )) 
+                cota = float( cota.get_property('innerText') )
+            
+                self.valor_aposta = ( self.valor_aposta / ( cota -1 ) ) + 0.01
+
+                if self.valor_aposta < 0.1:
+                    self.valor_aposta = 0.1
+
+                await self.insere_valor_dutching(None)
+
+                try:                   
+
+                    self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+                    apostas_restantes = ''
+                    if self.qt_apostas_feitas <= 2:
+                        apostas_restantes = self.qt_apostas_restantes( self.meta_ganho, self.perda_acumulada, self.saldo, 3.0 )
+                        apostas_restantes = f'{apostas_restantes} APOSTAS RESTANTES.'
+
+                    try:                    
+                        await self.telegram_bot.envia_mensagem(f"APOSTA {self.qt_apostas_feitas} REALIZADA.\n{apostas_restantes}")
+                        self.horario_ultima_checagem = datetime.now()
+                    except Exception as e:
+                        print(e)
+
+                    self.primeiro_alerta_depois_do_jogo = True
+                    self.primeiro_alerta_sem_jogos_elegiveis = True                    
+
+                    self.saldo_antes_aposta = self.saldo
+                    self.escreve_em_arquivo('saldo_antes_aposta.txt', f'{self.saldo_antes_aposta:.2f}', 'w')
+                    # if id_jogo:
+                    #     self.jogos_inseridos.append(f"{id_jogo['id']}{id_jogo['tempo']}{id_jogo['mercado']}")
+                    #     self.save_array_on_disk('jogos_inseridos.txt', self.jogos_inseridos)
+                    self.numero_apostas_feitas = 0
+                except Exception as e:
+                    print(e)
+
+                await self.espera_resultado_jogo_empate(champions_cup_start_date_string)
+            except Exception as e:
+                print(e)
+                try:
+                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+                except Exception as e:
+                    print('Não conseguiu limpar os jogos...')
+                    print(e)
+                self.testa_sessao()
+                self.aposta_com_erro = True
+                await self.espera_resultado_jogo_empate(champions_cup_start_date_string)
 
     def main_loop(self):
 
@@ -1526,6 +2641,11 @@ class ChromeAuto():
                 return int( f.read() )
             elif tipo == 'float':
                 return float( f.read() )
+            elif tipo == 'boolean':
+                valor = f.read()
+                return True if valor == 'True' else False
+            elif tipo == 'string':
+                return f.read()
             
     def escreve_em_arquivo(self, nome_arquivo, valor, tipo_escrita):
         with open(nome_arquivo, tipo_escrita) as f:
@@ -1817,7 +2937,7 @@ class ChromeAuto():
             print(e)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
 
     #numero_jogos_por_aposta = int(input())
 
@@ -1828,16 +2948,17 @@ if __name__ == '__main__':
     #chrome.clica_sign_in()
 
     chrome.faz_login()  
+    asyncio.run( chrome.empate())
     #chrome.jogos_ira()
     #chrome.jogos_ira_depois_7_reds()
 
-    chrome.depois_7_jogos_sem_empate()
+    #chrome.depois_7_jogos_sem_empate()
 
     #chrome.busca_odds_acima_meio_gol_sem_login('Mais de 0,5', 1.9, 2.9 )
     #chrome.busca_odds_acima_meio_gol('Mais de 0,5', 1.75, 2.9, 1, False, False, 100.0)
     # parâmetros: mercado, limite_inferior, limite_superior, valor_aposta, teste, varios_jogos, meta_diaria
 
-    #chrome.multipla_zebra()
+    
 
     #chrome.main_loop_2()
 

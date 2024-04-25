@@ -24,12 +24,15 @@ import psycopg2
 from dateutil import parser
 import re
 import csv
+import pickle
+import asyncio
+import concurrent.futures
 
 hora_jogo_atual = None
 
 # & C:/Python39/python.exe c:/Users/anderson.morais/Documents/dev/sportingbet3/app.py 2 5 4 50 1 20 1 2
 class ChromeAuto():
-    def __init__(self, numero_apostas=100, numero_jogos_por_aposta=8, apenas_acompanhar=False):
+    def __init__(self, numero_apostas=50, numero_jogos_por_aposta=10, apenas_acompanhar=False, is_new_game=True):
         self.numero_jogos_por_aposta = numero_jogos_por_aposta
         self.saldo = 0
         self.saldo_inicial = 0
@@ -42,7 +45,6 @@ class ChromeAuto():
         self.apenas_acompanhar = apenas_acompanhar        
         self.jogos_aleatorios = dict()
         self.numero_apostas = numero_apostas
-        self.gera_jogos_aleatorios()
         self.primeiro_alerta_depois_do_jogo = True
         self.numero_erros_global = 0
         self.tempo_pausa = None
@@ -50,8 +52,19 @@ class ChromeAuto():
         self.numero_apostas_feitas = 0
         self.jogos_inseridos = []
         self.varios_jogos = True
+        self.is_new_game = is_new_game
         #self.meta_ganho = 0.0
         self.hora_ultima_aposta = ''
+        self.jogos = {'jogos_aleatorios0.pkl': dict(), 
+                      'jogos_aleatorios1.pkl': dict(), 
+                      'jogos_aleatorios2.pkl': dict(), 
+                      'jogos_aleatorios3.pkl':dict(),
+                      'jogos_aleatorios4.pkl':dict(),
+                      'jogos_aleatorios5.pkl':dict(),
+                      'jogos_aleatorios6.pkl':dict(),
+                      'jogos_aleatorios7.pkl':dict(),
+                      'jogos_aleatorios8.pkl':dict(),
+                        'jogos_aleatorios9.pkl': dict()  }
         # self.conn = psycopg2.connect( database='sportingbet', user='postgres', host='localhost', password='postgres', port=5432 )
 
         # self.cur = self.conn.cursor()
@@ -67,7 +80,24 @@ class ChromeAuto():
 
         return
 
-    def gera_jogos_aleatorios(self):
+    def gera_jogos_aleatorios(self, nome_arquivo):
+
+        if not self.is_new_game:
+            try:
+                with open(f'{nome_arquivo}', 'rb') as fp:
+                    self.jogos_aleatorios = pickle.load(fp)
+                if len( self.jogos_aleatorios ) == 0:
+                    asyncio.run( self.analisa_resultados() )
+                return
+            except:            
+                print('erro ao ler o arquivo')
+                exit()
+
+        for jogo in self.jogos_aleatorios:
+            print(jogo)
+
+        if len(self.jogos_aleatorios) > 0:
+            return
 
         valor_maximo = 9586.88
 
@@ -80,39 +110,57 @@ class ChromeAuto():
         odds7 = [0, 2.1,3,3.2]
         odds8 = [0, 2.37,3.2,2.95]
 
-        CASA_FAVORITO = [1,1,1,2,2,3]
-        FORA_FAVORITO = [3,3,3,2,2,1]
+        CASA_FAVORITO = [1,1,1,1,1,2,2,2,3]
+        FORA_FAVORITO = [3,3,3,3,3,2,2,2,1]
         j1 = CASA_FAVORITO
         j2 = CASA_FAVORITO
         j3 = CASA_FAVORITO
         j4 = CASA_FAVORITO
-        j5 = FORA_FAVORITO
+        j5 = CASA_FAVORITO
         j6 = CASA_FAVORITO
-        j7 = CASA_FAVORITO
+        j7 = FORA_FAVORITO
         j8 = CASA_FAVORITO
         j9 = CASA_FAVORITO
         j10 = CASA_FAVORITO
 
-        while len(self.jogos_aleatorios) < 200:
+        i = 0
+
+        # jogos_ja_gerados = None
+        # with open(f'{nome_arquivo}', 'rb') as fp:
+        #     jogos_ja_gerados = pickle.load(fp)
+        
+        while len(self.jogos_aleatorios) < self.numero_apostas:
+            
             while True:
                 jogo = []
                 for _ in range(self.numero_jogos_por_aposta):
-                    jogo.append(randint(0,5))
+                    jogo.append(randint(0,8))
 
-                soma_empates = jogo.count(3) + jogo.count(4)
+                soma_empates = jogo.count(5) + jogo.count(6) + jogo.count(7)
+                soma_zebra = jogo.count(8)
 
-                valor_total = odds1[j1[jogo[0]]] * odds2[j2[jogo[1]]] *odds3[j3[jogo[2]]] *odds4[j4[jogo[3]]]*odds5[j5[jogo[4]]]*odds6[j6[jogo[5]]]*odds7[j7[jogo[6]]]*odds8[j8[jogo[7]]]
-
-                if valor_total >= valor_maximo * 0.15 and valor_total <= valor_maximo * 0.45 and soma_empates <= 4:
+                if soma_empates in (1, 2, 3, 4, 5) and soma_zebra in (1, 2, 3, 4, 5):
                     break
 
-            jogo = f'{j1[jogo[0]]} {j2[jogo[1]]} {j3[jogo[2]]} {j4[jogo[3]]} {j5[jogo[4]]} {j6[jogo[5]]} {j7[jogo[6]]} {j8[jogo[7]]} {j9[jogo[8]] if len(jogo) > 8 else ""} {j10[jogo[9]] if len(jogo) > 9 else ""}'
+                # valor_total = odds1[j1[jogo[0]]] * odds2[j2[jogo[1]]] *odds3[j3[jogo[2]]] *odds4[j4[jogo[3]]]*odds5[j5[jogo[4]]]*odds6[j6[jogo[5]]]*odds7[j7[jogo[6]]]*odds8[j8[jogo[7]]]
+
+                # if valor_total >= valor_maximo * 0.15 and valor_total <= valor_maximo * 0.45 and soma_empates <= 4:
+                #     break
+
+            jogo = f'{j1[jogo[0]]} {j2[jogo[1]]} {j3[jogo[2]]} {j4[jogo[3]]} {j5[jogo[4]]} {j6[jogo[5]]} {j7[jogo[6]]} {j8[jogo[7]]} {j9[jogo[8]] if len(jogo) > 8 else ""} {j10[jogo[9]] if len(jogo) > 9 else ""}'            
             if self.jogos_aleatorios.get(jogo) == None:
                 self.jogos_aleatorios[jogo] = True
+                self.jogos[f'jogos_aleatorios{i%10}.pkl'][jogo] = True
+                i += 1
 
         for jogo in self.jogos_aleatorios:
             print(jogo)
+        
+        for i in range(10):
+            with open(f'jogos_aleatorios{i}.pkl', 'wb') as fp:
+                pickle.dump(self.jogos[f'jogos_aleatorios{i}.pkl'], fp)
 
+    
     def acessa(self, site):         
         carregou_site = False
         while not carregou_site:
@@ -121,12 +169,22 @@ class ChromeAuto():
                 self.options = Options()
                 self.options.add_argument('--ignore-certificate-errors')
                 self.options.add_argument('--ignore-ssl-errors')
-                # self.options.add_argument('--disk-cache-size')                
+                self.options.add_argument("--disable-extensions")
+                self.options.add_argument("--dns-prefetch-disable")
+                self.options.add_argument("--disable-gpu")          
+                self.options.add_argument('--no-sandbox')      
+                self.options.add_argument("--force-device-scale-factor=0.5")                                
+                self.options.add_argument("--log-level=3") 
+                self.options.add_argument("--silent")
+                # self.options.add_argument('--disk-cache-size')    
+                print('carregando driver...')            
                 self.chrome = webdriver.Chrome(options=self.options, service=ChromeService(ChromeDriverManager().install()))                
+                print('driver carregado...')            
                 # definimos quanto um script vai esperar pela resposta
                 self.chrome.get(site)
                 self.chrome.maximize_window()
-                self.chrome.fullscreen_window()
+                self.chrome.fullscreen_window()                
+
                 carregou_site = True
             except Exception as e:
                 print(e)
@@ -284,36 +342,18 @@ class ChromeAuto():
                     self.telegram_bot.envia_mensagem('SISTEMA TRAVADO NO LOGIN')
 
     
-    def faz_apostas(self):
+    def faz_apostas(self, nome_arquivo):
         self.chrome.get('https://sports.sportingbet.com/pt-br/sports/favoritos/eventos')
         self.chrome.maximize_window()
         self.chrome.fullscreen_window()
 
-        self.jogos_aleatorios = ['2 1 2 2 3 1 2 3',
-            '3 3 1 3 1 2 3 1',
-            '1 2 1 2 1 1 1 3',
-            '2 2 2 1 2 3 1 3',
-            '3 2 3 2 1 2 2 1',
-            '2 2 1 2 1 3 1 1',
-            '3 2 1 2 3 2 2 1',
-            '2 3 2 2 3 3 1 2',
-            '2 2 2 2 3 3 1 1',
-            '1 1 1 2 3 2 2 3',
-            '2 2 1 1 3 1 3 1',
-            '2 2 1 1 1 1 2 2',
-            '2 3 1 2 3 1 2 2',
-            '2 1 2 1 1 2 1 1',
-            '2 3 1 1 3 2 1 2',
-            '1 2 2 1 2 3 2 1',
-            '1 2 2 2 2 1 1 3',
-            '2 1 1 3 2 1 2 1',
-            '3 2 1 1 3 2 1 2']
+        while len( self.jogos_aleatorios ) > 0:
+            jogo_aleatorio, valor = self.jogos_aleatorios.popitem()
 
-        for jogo_aleatorio in self.jogos_aleatorios:
-            jogo_atual = 1
             print(f'Gerando jogo {jogo_aleatorio}...')
+            jogo_atual = 1
             for j in jogo_aleatorio.split():
-                clicou = False
+                clicou = False                
                 while not clicou:
                     try:
                         jogo = WebDriverWait(self.chrome, 20).until(
@@ -324,10 +364,29 @@ class ChromeAuto():
                         jogo_atual += 1
                         sleep(0.1)
                     except Exception as e:
-                        print(e)            
-            self.insere_valor_2()    
+                        self.is_new_game = False
+                        self.chrome.quit()
+                        self.acessa('https://sports.sportingbet.com/pt-br/sports')           
+                        self.faz_login()  
+                        self.gera_jogos_aleatorios(nome_arquivo)   
+                        self.faz_apostas(nome_arquivo) 
 
-        input()
+            fez_aposta = False
+            while not fez_aposta:
+                try:    
+                    self.insere_valor_2()    
+                    fez_aposta = True
+                except:
+                    self.is_new_game = False
+                    self.chrome.quit()
+                    self.acessa('https://sports.sportingbet.com/pt-br/sports')           
+                    self.faz_login()  
+                    self.gera_jogos_aleatorios(nome_arquivo)   
+                    self.faz_apostas(nome_arquivo)                    
+
+            with open(nome_arquivo, 'wb') as fp:
+                pickle.dump(self.jogos_aleatorios, fp)
+
 
     def filtro(self, elemento):
         return elemento['scoreboard']['score'] == '0:0'
@@ -2284,72 +2343,101 @@ class ChromeAuto():
                     self.chrome.refresh()
                 print('Não foi possível ler saldo. Tentando de novo...')
 
-    def analisa_resultados(self):
-        print('analisa resultados')
+    async def analisa(self, index):
+        pass
+
+    async def analisa_resultados(self, index):
+        print('analisa resultados')       
         apostas_cachout = dict()
         while True:
-            cachouts = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=299&typeFilter=1"); return await d.json();')
+            try:
+                i = index
+                cachout_temp = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=Live"); return await d.json();')                
 
-            ## não tem jogo aberto
-            if len(cachouts['betslips']) == 0:
-                print('SEM APOSTAS EM ABERTO.')
-                tempo_de_pausa = 60 * 10
+                ## não tem jogo aberto
+                if len(cachout_temp['betslips']) == 0:
+                    print('SEM APOSTAS EM ABERTO.')
+                    tempo_de_pausa = 60 * 10
+                    sleep(tempo_de_pausa)
+                    continue
 
-            ## vai modificar o tempo de pausa a depender se há jogo ao vivo ou não
-            if cachouts['summary']['liveBetsCount'] == 0:
-                print('SEM APOSTAS AO VIVO.')
-                tempo_de_pausa = 60 * 30
-            else:
-                tempo_de_pausa = 60 * 2.5
-
-            aumentou_algum = False
-            mensagem_telegram = ''
-
-            todos_zerados = True
-            soma_odds = 0.0
-
-            array_odds = []
-
-            for bet in cachouts['betslips']:
-                c1 = bet['betSlipNumber']
-                c_2 = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/CashoutCheckAndSubscribe?betNumbers={c1}&source=mybets&forceFresh=1"); return await d.json();')
-                c_4 = c_2['earlyPayouts'][0]
-
-                bet_number = c_4['betNumber']
-                v =  float(c_4['earlyPayoutValue'])
-                soma_odds += v
-                if apostas_cachout.get(bet_number) is None:
-                    apostas_cachout[bet_number] = float( c_4['earlyPayoutValue'] )
+                ## vai modificar o tempo de pausa a depender se há jogo ao vivo ou não
+                if cachout_temp['summary']['liveBetsCount'] == 0:
+                    print('SEM APOSTAS AO VIVO.')
+                    tempo_de_pausa = 60 * 30
+                    sleep(tempo_de_pausa)
+                    continue
                 else:
-                    valor_novo = float( c_4['earlyPayoutValue'] )
+                    tempo_de_pausa = 60 * 2.5            
 
-                    if valor_novo > 0:
-                        todos_zerados = False
+                aumentou_algum = False
+                mensagem_telegram = ''
 
-                    if valor_novo > apostas_cachout.get(bet_number):
-                        aumentou_algum = True
-                        valor_antigo = apostas_cachout.get(bet_number)
-                        del apostas_cachout[bet_number]
-                        apostas_cachout[bet_number] = valor_novo
-                        bet_number = bet_number                                                        
-                        array_odds.append({ 'betNumber': bet_number, 'oldValue': valor_antigo, 'newValue' : valor_novo })
+                todos_zerados = True
+                soma_odds = 0.0
 
-            array_odds = sorted( array_odds, key=lambda k: k['newValue'], reverse=True )
+                array_odds = []
 
-            mensagem_telegram += f'SOMA DAS ODDS: {soma_odds:.2f}\n'
+                controle = 0
 
-            for odd in array_odds:
-                mensagem_telegram += f"JOGO {odd['betNumber']} AUMENTOU DE {odd['oldValue']} PARA {odd['newValue']}\n"
+                c = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index={i}&maxItems=6&typeFilter=Live"); return await d.json();')
+                cachouts = dict()
+                cachouts['betslips'] = c['betslips']
+                while controle <= 50:
+                    i += 1
+                    controle += 1
+                    c = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index={i}&maxItems=6&typeFilter=Live"); return await d.json();')
+                    cachouts['betslips'].extend(c['betslips'])
+
+                if len( c['betslips'] ) > 0:
+                    cachouts['betslips'].extend(c['betslips'])
+
+                for bet in cachouts['betslips']:
+                    print(bet['betSlipNumber'])
+                    c1 = bet['betSlipNumber']
+                    c_2 = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/CashoutCheckAndSubscribe?betNumbers={c1}&source=mybets&forceFresh=1"); return await d.json();')
+                    c_4 = c_2['earlyPayouts'][0]
+
+                    bet_number = c_4['betNumber']
+                    v =  float(c_4['earlyPayoutValue'])
+                    soma_odds += v
+                    if apostas_cachout.get(bet_number) is None:
+                        apostas_cachout[bet_number] = float( c_4['earlyPayoutValue'] )
+                    else:
+                        valor_novo = float( c_4['earlyPayoutValue'] )
+
+                        if valor_novo > 0:
+                            todos_zerados = False
+
+                        if valor_novo > apostas_cachout.get(bet_number) and valor_novo >= 0.5:
+                            aumentou_algum = True
+                            valor_antigo = apostas_cachout.get(bet_number)
+                            del apostas_cachout[bet_number]
+                            apostas_cachout[bet_number] = valor_novo
+                            bet_number = bet_number                                                        
+                            array_odds.append({ 'betNumber': bet_number, 'oldValue': valor_antigo, 'newValue' : valor_novo })
+
+                array_odds = sorted( array_odds, key=lambda k: k['newValue'], reverse=True )
+
+                mensagem_telegram += f'SOMA DAS ODDS: {soma_odds:.2f}\n'
+
+                print(f'-- soma das odds -- {soma_odds:.2f}')
+
+                for odd in array_odds:
+                    mensagem_telegram += f"JOGO {odd['betNumber']} AUMENTOU DE {odd['oldValue']} PARA {odd['newValue']}\n"
+                
+                if todos_zerados:
+                    tempo_de_pausa = 60 
+
+                if aumentou_algum:
+                    await self.telegram_bot.envia_mensagem(mensagem_telegram)  
+                else:
+                    print('Same old, same old...', datetime.now() )                                      
+                
+                sleep(tempo_de_pausa)
+            except Exception as e:
+                print(e)
             
-            if todos_zerados:
-                tempo_de_pausa = 60 
-
-            if aumentou_algum:
-                self.telegram_bot.envia_mensagem(mensagem_telegram)  
-            else:
-                print('Same old, same old...')                                      
-            
-            sleep(tempo_de_pausa)
 
         self.chrome.quit()
         exit()
@@ -2528,11 +2616,11 @@ class ChromeAuto():
         return
     
     def insere_valor_2(self):
-        self.valor_aposta = 1
+        self.valor_aposta = 0.10
         print('entrou no insere valor')
 
-        if self.valor_aposta < 1:
-            self.valor_aposta = 1
+        if self.valor_aposta < 0.10:
+            self.valor_aposta = 0.10
 
 
         try:
@@ -3098,11 +3186,13 @@ if __name__ == '__main__':
 
     #apenas_analisa = int(input())   
 
+    nome_arquivo = sys.argv[1]
+    index = int(sys.argv[2])
     
 
-    chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=8)
+    chrome = ChromeAuto(numero_apostas=2000, numero_jogos_por_aposta=9, is_new_game=False)
     chrome.acessa('https://sports.sportingbet.com/pt-br/sports')        
-    # #chrome.clica_sign_in()
+     #chrome.clica_sign_in()
     chrome.faz_login()  
     #chrome.busca_odds_acima_meio_gol_sem_login('Mais de 0,5', 1.9, 2.9 )
     #chrome.busca_odds_acima_meio_gol('Mais de 0,5', 1.75, 2.9, 1, False, False, 100.0)
@@ -3113,8 +3203,10 @@ if __name__ == '__main__':
     # if apenas_analisa == 1:
     #chrome.analisa_resultados()
     # elif apenas_analisa == 2:
-    #chrome.faz_apostas()
-    chrome.analisa_resultados()
+    chrome.gera_jogos_aleatorios(nome_arquivo)
+    chrome.faz_apostas(nome_arquivo)
+    #asyncio.run( chrome.analisa_resultados(index=index))
+    
     # elif apenas_analisa == 3:
     #     chrome.busca_odds_acima_meio_gol_sem_login('Mais de 0,5', 1.75, 1.9 )
     #     #chrome.busca_odds_acima_meio_gol('Mais de 0,5', 1.75, 1.9, 1, False, False)
