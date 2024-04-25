@@ -917,6 +917,8 @@ class ChromeAuto():
             except:
                 self.testa_sessao()
 
+            qt_apostas_restantes = self.qt_apostas_restantes( self.meta_ganho, self.perda_acumulada, self.saldo, 3.0 )
+
             while jogos_abertos['summary']['openBetsCount'] >= 1:
                 print('ainda não apurou resultado')
                 sleep(1)
@@ -961,7 +963,7 @@ class ChromeAuto():
                     if self.qt_apostas_feitas <= 2:
                         self.meta_ganho = self.saldo * 0.0034    
                         self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
-                        await self.telegram_bot_erro.envia_mensagem(f'ganho real\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}')
+                        await self.telegram_bot_erro.envia_mensagem(f'ganho real\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
                         self.perda_acumulada = 0.0
                         self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')                                    
                     else:                        
