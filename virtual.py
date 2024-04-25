@@ -958,7 +958,7 @@ class ChromeAuto():
 
                     self.saldo += valor_ganho
                     self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
-                    print('saldo depois do resultado ', self.saldo )
+                    print(f'saldo depois do resultado {self.saldo:.2f}' )
                     
                     if self.qt_apostas_feitas <= 2:
                         self.meta_ganho = self.saldo * 0.0034    
@@ -2151,14 +2151,14 @@ class ChromeAuto():
                     print('Erro ao tentar fechar banner')  
 
                 try:
-                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
-                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) { lixeira.click(); }")
+                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) {confirmacao.click(); }")                        
                 except Exception as e:                        
                     print('Não conseguiu limpar os jogos...')
                     print(e)            
 
                 try:
-                    self.chrome.execute_script("var botao = document.querySelector('.ui-icon.theme-ex.ng-star-inserted'); if (botao) botao.click()")                    
+                    self.chrome.execute_script("var botao = document.querySelector('.ui-icon.theme-ex.ng-star-inserted'); if (botao) { botao.click(); }")                    
                 except Exception as e:                        
                     print(e)            
 
