@@ -6,3 +6,4 @@ Perfil
 chromedriver-win64*
 *.txt
 *.json
+.png

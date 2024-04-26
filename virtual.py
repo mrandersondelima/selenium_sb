@@ -133,6 +133,9 @@ class ChromeAuto():
                 self.options.add_argument("--dns-prefetch-disable")
                 self.options.add_argument("--disable-gpu")          
                 self.options.add_argument('--no-sandbox')      
+                # self.options.add_argument('--headless')
+                # self.options.add_argument('--window-size=1920,1080')
+                # self.options.add_argument('--allow-running-insecure-content')
                 self.options.add_argument("--force-device-scale-factor=1")                                
                 self.options.add_argument("--log-level=3") 
                 self.options.add_argument("--silent")
@@ -255,6 +258,7 @@ class ChromeAuto():
                     print('Erro ao tentar fechar banner')
 
             except Exception as e:
+                self.chrome.get_screenshot_as_file('screenshot.png')
                 print('erro aleatório')
                 tentativas += 1
                 if url_acesso == 'https://sports.sportingbet.com/pt-br/sports':
@@ -1004,7 +1008,7 @@ class ChromeAuto():
                     if self.qt_apostas_feitas <= 2:
                         self.meta_ganho = self.saldo * 0.0034    
                         self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
-                        await self.telegram_bot_erro.envia_mensagem(f'ganho real\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
+                        await self.telegram_bot_erro.envia_mensagem(f'vai ficar rico, gabundo!\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
                         self.perda_acumulada = 0.0
                         self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')                                    
                     else:                        
@@ -2309,6 +2313,7 @@ class ChromeAuto():
 
                 await self.espera_resultado_jogo_empate(champions_cup_start_date_string)
             except Exception as e:
+                self.chrome.get_screenshot_as_file(f'{datetime.now()}.png')
                 try:
                     await self.telegram_bot_erro.envia_mensagem('exception no main loop')
                 except:
