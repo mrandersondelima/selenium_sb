@@ -476,7 +476,33 @@ class ChromeAuto():
                     self.aposta_com_erro = True
                     return
                         
-                sleep(0.2)
+                sleep(1)
+
+                count = 0
+
+                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+
+                while jogos_abertos['summary']['openBetsCount'] == 0 and count < 5:                    
+                    try:
+                        botao_aposta = WebDriverWait(self.chrome, 10).until(
+                                EC.element_to_be_clickable((By.CLASS_NAME, 'betslip-place-button' ) )) 
+                        botao_aposta.click()    
+                        clicou = True 
+                    except:
+                        count += 1
+                        print('erro ao clicar no botão de aposta')
+                        try:
+                            await self.telegram_bot_erro.envia_mensagem('erro ao clicar no botão de aposta')
+                        except:
+                            pass
+                    finally:
+                        jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                    sleep(2)
+
+                if count == 5:
+                    await self.testa_sessao()
+                    self.aposta_com_erro = True
+                    return
 
                 clicou = False
                 count = 0
@@ -499,12 +525,6 @@ class ChromeAuto():
                     await self.testa_sessao()   
                     self.aposta_com_erro = True
                     return
-                
-                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-
-                while jogos_abertos['summary']['openBetsCount'] == 0:
-                    jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                    sleep(2)
 
                 self.saldo -= self.valor_aposta
                 self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
