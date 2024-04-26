@@ -276,7 +276,7 @@ class ChromeAuto():
                 break
         return jogos_perdidos
       
-    def le_saldo(self):        
+    async def le_saldo(self):        
         leu_saldo = False        
         while not leu_saldo:
             try:
@@ -286,7 +286,7 @@ class ChromeAuto():
             except Exception as e:
                 sleep(5)
                 print(e)                
-                self.testa_sessao()                
+                await self.testa_sessao()                
                 self.chrome.refresh()
                 print('Não foi possível ler saldo. Tentando de novo...')
 
@@ -440,12 +440,16 @@ class ChromeAuto():
 
                         clicou = True
                     except Exception as e:
+                        try:
+                            await self.telegram_bot_erro.envia_mensagem('erro ao inserir valor')
+                        except:
+                            pass
                         count += 1
                         print('erro ao inserir valor')
                         print(e)
                 
                 if count == 5:
-                    self.testa_sessao()
+                    await self.testa_sessao()
                     self.aposta_com_erro = True
                     return
                             
@@ -462,9 +466,13 @@ class ChromeAuto():
                     except:
                         count += 1
                         print('erro ao clicar no botão de aposta')
+                        try:
+                            await self.telegram_bot_erro.envia_mensagem('erro ao clicar no botão de aposta')
+                        except:
+                            pass
 
                 if count == 5:
-                    self.testa_sessao()
+                    await self.testa_sessao()
                     self.aposta_com_erro = True
                     return
                         
@@ -481,10 +489,14 @@ class ChromeAuto():
                     except:
                         count += 1
                         # se ele não clicou no botão de fechar aposta é porque provavelmente ela não foi feita
-                        print('erro ao clicar no botão de fechar')                 
+                        print('erro ao clicar no botão de fechar')     
+                        try:
+                            await self.telegram_bot_erro.envia_mensagem('erro ao clicar no botão de fechar')
+                        except:
+                            pass            
 
                 if count == 5:
-                    self.testa_sessao()   
+                    await self.testa_sessao()   
                     self.aposta_com_erro = True
                     return
                 
@@ -509,7 +521,7 @@ class ChromeAuto():
                 print('erro no insere valor')
                 self.aposta_com_erro = True
                 print(e)
-                self.testa_sessao()
+                await self.testa_sessao()
                 #self.telegram_bot_erro.envia_mensagem('OCORREU UM ERRO AO TENTAR INSERIR VALOR DA APOSTA.')
                 try:
                     self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
@@ -518,7 +530,7 @@ class ChromeAuto():
                     print('Não conseguiu limpar os jogos...')
     
 
-    def testa_sessao(self):
+    async def testa_sessao(self):
         print('testando sessão...')
         try:
             self.chrome.execute_script("var botao_fechar = document.querySelector('.ui-icon.theme-close-i.ng-star-inserted'); if (botao_fechar) { botao_fechar.click(); }")
@@ -532,10 +544,19 @@ class ChromeAuto():
         except:
             print('sessão expirada. tentando login novamente.')
             try:
+                try:
+                    await self.telegram_bot_erro.envia_mensagem('sessão expirada')
+                except:
+                    pass
+                self.chrome.quit()
                 self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
                 self.chrome.maximize_window()
                 self.chrome.fullscreen_window()
             except Exception as e:
+                try:
+                    await self.telegram_bot_erro.envia_mensagem('exception no login')
+                except:
+                    pass
                 print(e)
             finally:
                 self.faz_login()
@@ -915,7 +936,7 @@ class ChromeAuto():
             try:               
                 jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
             except:
-                self.testa_sessao()
+                await self.testa_sessao()
 
             qt_apostas_restantes = self.qt_apostas_restantes( self.meta_ganho, self.perda_acumulada, self.saldo, 3.0 )
 
@@ -925,7 +946,7 @@ class ChromeAuto():
                 try:
                     jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
                 except:
-                    self.testa_sessao()
+                    await self.testa_sessao()
          
             try:
                 jogos_encerrados = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=2&typeFilter=2"); return await d.json();')
@@ -991,7 +1012,7 @@ class ChromeAuto():
             print(f'SALDO ATUAL: {self.saldo:.2f}')
         except Exception as e:
             print(e)
-            self.testa_sessao()
+            await self.testa_sessao()
             print('Algo saiu errada no espera_resultado')
 
 
@@ -1011,7 +1032,7 @@ class ChromeAuto():
             except Exception as e:
                 print(e)
 
-            pause.until( hora_do_jogo + timedelta(minutes=1, seconds=20)  )
+            pause.until( hora_do_jogo + timedelta(minutes=1, seconds=25)  )
         except:
             print('algo saiu errado no espera resultado sem aposta')
 
@@ -2034,7 +2055,7 @@ class ChromeAuto():
         self.qt_apostas_feitas = self.le_de_arquivo('qt_apostas_feitas.txt', 'int')
         self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
         self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')      
-        self.le_saldo()
+        await self.le_saldo()
         self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                  
         
         url_champions_cup = "https://sports.sportingbet.com/pt-br/sports/virtual/futebol-virtual-101/champions-cup-100199"
@@ -2061,8 +2082,12 @@ class ChromeAuto():
                 await self.espera_resultado_jogo_empate(hora_ultima_aposta)
 
         except Exception as e:
+            try:
+                await self.telegram_bot_erro.envia_mensagem('exception 1')
+            except:
+                pass
             print('exception 1')
-            self.testa_sessao()
+            await self.testa_sessao()
             print(e)
 
         while True:
@@ -2165,7 +2190,7 @@ class ChromeAuto():
                 clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{champions_cup_start_date_string}']")
                 count = 0
                 while not clicou and count < 5:
-                    self.testa_sessao()
+                    await self.testa_sessao()
                     self.chrome.get(url_champions_cup)
                     self.chrome.maximize_window()
                     self.chrome.fullscreen_window()
@@ -2179,7 +2204,7 @@ class ChromeAuto():
                     count += 1
                 
                 if count == 5:
-                    self.testa_sessao()
+                    await self.testa_sessao()
                     raise Exception('raise exception 3')
 
                 c_option = jogo_champions_cup_dict['empate']['optionid']
@@ -2202,7 +2227,7 @@ class ChromeAuto():
                         print(e)
 
                 if count == 5:
-                    self.testa_sessao()
+                    await self.testa_sessao()
                     raise Exception('raise exception 4')
 
                 sleep(1)
@@ -2221,7 +2246,7 @@ class ChromeAuto():
                         count += 1
 
                 if count == 10:
-                    self.testa_sessao()
+                    await self.testa_sessao()
                     raise Exception('raise exception 5')
 
                 cota = WebDriverWait(self.chrome, 10).until(
@@ -2264,14 +2289,19 @@ class ChromeAuto():
 
                 await self.espera_resultado_jogo_empate(champions_cup_start_date_string)
             except Exception as e:
+                try:
+                    await self.telegram_bot_erro.envia_mensagem('exception no main loop')
+                except:
+                    pass
                 print(e)
+                print('exception no main loop')
                 try:
                     self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
                     self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
                 except Exception as e:
                     print('Não conseguiu limpar os jogos...')
                     print(e)
-                self.testa_sessao()
+                await self.testa_sessao()
                 self.aposta_com_erro = True
                 await self.espera_resultado_jogo_empate(champions_cup_start_date_string)
 

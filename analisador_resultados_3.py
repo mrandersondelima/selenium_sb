@@ -17,6 +17,7 @@ horario_ultima_checagem = datetime.now()
 telegram = TelegramBot()
 
 def empatou():
+    print('entrou no método que lê resultado')
     tentativas_leitura = 0
     url = '/home/anderson/novo_results.sh'
     
@@ -32,7 +33,7 @@ def empatou():
                 result_id_1 = saida_1[1][1:]
                 leu_correto = True
 
-                if '_' not in saida_1[2] and '_' not in result_id_1:
+                if '_' not in saida_1[2]:
 
                     print(saida_1[2])
 
@@ -45,16 +46,17 @@ def empatou():
                    
                 else:
                     tentativas_leitura += 1
+                    print(saida_1[2])
             else:
                 tentativas_leitura += 1
 
             if tentativas_leitura >= 30:
                 return None
         
-            sleep(1)
+            sleep(0.5)
         except Exception as e:
             tentativas_leitura += 1
-            sleep(1)
+            sleep(0.5)
             print('ERRO ', e)
 
 # estilo jogo = 1 usa martingale, estilo jogo = 2 vai fazer uma aposta depois que sair o primeiro jogo com apenas um gol
