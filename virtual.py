@@ -1005,8 +1005,8 @@ class ChromeAuto():
                     self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
                     print(f'saldo depois do resultado {self.saldo:.2f}' )
                     
-                    if self.qt_apostas_feitas <= 2:
-                        self.meta_ganho = self.saldo * 0.0034    
+                    if self.qt_apostas_feitas <= 3:
+                        self.meta_ganho = self.saldo * 0.00208    
                         self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
                         await self.telegram_bot_erro.envia_mensagem(f'vai ficar rico, gabundo!\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
                         self.perda_acumulada = 0.0
@@ -1021,14 +1021,14 @@ class ChromeAuto():
 
                         self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w') 
 
-                    if self.qt_apostas_feitas <= 2:
-                        self.qt_apostas_feitas = 3
+                    if self.qt_apostas_feitas <= 3:
+                        self.qt_apostas_feitas = 4
                         self.is_for_real = False
                     else:
                         self.qt_apostas_feitas = 0
                     self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')     
 
-                if self.qt_apostas_feitas >= 2:
+                if self.qt_apostas_feitas >= 3:
                     self.is_for_real = False       
             except Exception as e:
                 print(e)
@@ -2189,7 +2189,7 @@ class ChromeAuto():
                 jogo_champions_cup_dict['empate']['optionid'] = proximo_jogo_champions_cup[1]['id']
                 jogo_champions_cup_dict['empate']['odd'] = float( proximo_jogo_champions_cup[1]['price']['odds'] )                                
 
-                if self.qt_apostas_feitas >= 2:
+                if self.qt_apostas_feitas >= 3:
                     self.valor_aposta = 0.1
                 else:
                     self.valor_aposta = self.meta_ganho + self.perda_acumulada
@@ -2270,6 +2270,7 @@ class ChromeAuto():
                         count += 1
 
                 if count == 10:
+                    self.chrome.get_screenshot_as_file(f'{datetime.now()}.png')
                     await self.testa_sessao()
                     raise Exception('raise exception 5')
 
@@ -2289,7 +2290,7 @@ class ChromeAuto():
                     self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
 
                     apostas_restantes = ''
-                    if self.qt_apostas_feitas <= 2:
+                    if self.qt_apostas_feitas <= 3:
                         apostas_restantes = self.qt_apostas_restantes( self.meta_ganho, self.perda_acumulada, self.saldo, 3.0 )
                         apostas_restantes = f'{apostas_restantes} APOSTAS RESTANTES.'
 
@@ -2321,8 +2322,8 @@ class ChromeAuto():
                 print(e)
                 print('exception no main loop')
                 try:
-                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
-                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) { lixeira.click(); }")
+                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) { confirmacao.click(); }")                        
                 except Exception as e:
                     print('Não conseguiu limpar os jogos...')
                     print(e)
