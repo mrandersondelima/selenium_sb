@@ -265,6 +265,7 @@ class ChromeAuto():
                     url_acesso = 'https://sports.sportingbet.com/pt-br/labelhost/login'
                 else:
                     url_acesso = 'https://sports.sportingbet.com/pt-br/sports'
+                self.chrome.quit()
                 self.chrome.get(url_acesso)
                 self.chrome.maximize_window()
                 self.chrome.fullscreen_window()
@@ -3006,12 +3007,17 @@ if __name__ == '__main__':
 
     #apenas_analisa = int(input())   
 
-    chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)
-    chrome.acessa('https://sports.sportingbet.com/pt-br/sports')        
+    chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)    
+    while True:    
     #chrome.clica_sign_in()
-
-    chrome.faz_login()  
-    asyncio.run( chrome.empate())
+        try:
+            chrome.acessa('https://sports.sportingbet.com/pt-br/sports')    
+            chrome.faz_login()  
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            asyncio.run( chrome.empate())
+        except Exception as e:
+            chrome.sair()
+            print(e)
     #chrome.jogos_ira()
     #chrome.jogos_ira_depois_7_reds()
 
