@@ -1028,6 +1028,20 @@ class ChromeAuto():
             await self.testa_sessao()
             print('Algo saiu errada no espera_resultado')
 
+    def disable_quickedit(self):
+        if not os.name == 'posix':
+            try:
+                import msvcrt
+                import ctypes
+                kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+                device = r'\\.\CONIN$'
+                with open(device, 'r') as con:
+                    hCon = msvcrt.get_osfhandle(con.fileno())
+                    kernel32.SetConsoleMode(hCon, 0x0080)
+            except Exception as e:
+                print('Cannot disable QuickEdit mode! ' + str(e))
+                print('.. As a consequence the script might be automatically\
+                paused on Windows terminal')
 
     async def espera_resultado_jogo_sem_aposta(self, horario_jogo):
 
@@ -2996,7 +3010,8 @@ if __name__ == '__main__':
 
     #apenas_analisa = int(input())   
 
-    chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)    
+    chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)        
+    chrome.disable_quickedit()
     while True:    
     #chrome.clica_sign_in()
         try:
