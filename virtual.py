@@ -1004,30 +1004,18 @@ class ChromeAuto():
 
                     self.saldo += valor_ganho
                     self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
-                    print(f'saldo depois do resultado {self.saldo:.2f}' )
+                    print(f'saldo depois do resultado {self.saldo:.2f}' )                    
+
+                    self.meta_ganho = self.saldo * 0.00208    
+                    self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
+                    await self.telegram_bot_erro.envia_mensagem(f'vai ficar rico, gabundo!\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
+                    self.perda_acumulada = 0.0
+                    self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')   
                     
-                    if self.qt_apostas_feitas <= 3:
-                        self.meta_ganho = self.saldo * 0.00208    
-                        self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
-                        await self.telegram_bot_erro.envia_mensagem(f'vai ficar rico, gabundo!\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
-                        self.perda_acumulada = 0.0
-                        self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')                                    
-                    else:                        
-                        if self.perda_acumulada < valor_ganho:
-                            await self.telegram_bot_erro.envia_mensagem(f'ganho real\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}')
-                            self.perda_acumulada = 0.0
-                        else:                        
-                            await self.telegram_bot.envia_mensagem(f'recuperou\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}')
-                            self.perda_acumulada -= valor_ganho                        
+                    self.qt_apostas_feitas = 4
+                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')      
 
-                        self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w') 
-
-                    if self.qt_apostas_feitas <= 3:
-                        self.qt_apostas_feitas = 4
-                        self.is_for_real = False
-                    else:
-                        self.qt_apostas_feitas = 0
-                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')     
+                    return                
 
                 if self.qt_apostas_feitas >= 3:
                     self.is_for_real = False       
@@ -2167,6 +2155,7 @@ class ChromeAuto():
                     elif jogo_empatado == True:
                         self.is_for_real = True
                         self.qt_apostas_feitas = 0
+                        self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')
                         print('jogo empatado')
                         self.numero_reds = 0
                     elif jogo_empatado == False:                        
