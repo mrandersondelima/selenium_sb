@@ -87,6 +87,7 @@ class ChromeAuto():
         self.meta_ganho = 0.0
         self.aposta_com_erro = False        
         self.is_for_real = False
+        self.qt_fake_bets = 0
         self.jogos = [
             '00:20',
             '01:17',
@@ -1006,12 +1007,13 @@ class ChromeAuto():
                     self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
                     print(f'saldo depois do resultado {self.saldo:.2f}' )                    
 
-                    self.meta_ganho = self.saldo * 0.00228    
+                    self.meta_ganho = self.saldo * 0.1  
                     self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
                     await self.telegram_bot_erro.envia_mensagem(f'vai ficar rico, gabundo!\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
                     self.perda_acumulada = 0.0
                     self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')   
                     
+                    self.qt_fake_bets = 0
                     self.qt_apostas_feitas = 4
                     self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')      
 
@@ -2185,6 +2187,28 @@ class ChromeAuto():
                     elif jogo_empatado == False:                        
                         print('jogo não saiu empatado')
                     continue
+                else:
+                    if self.qt_fake_bets < 9:         
+                        self.qt_fake_bets += 1
+                        self.qt_apostas_feitas += 1           
+                        await self.espera_resultado_jogo_sem_aposta(champions_cup_start_date_string)
+                        jogo_empatado = empatou()
+                        if jogo_empatado == None:
+                            print('jogo com erro')                                                
+                        elif jogo_empatado == True:
+                            self.is_for_real = False
+                            self.qt_fake_bets = 0
+                            self.qt_apostas_feitas = 4                            
+                            self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')
+                            print('jogo empatado')
+                            self.numero_reds = 0
+                        elif jogo_empatado == False:                        
+                            print('jogo não saiu empatado')
+
+                        if self.qt_apostas_feitas >= 3:
+                            self.is_for_real = False 
+                        
+                        continue
 
                 for option_market in proximo_jogo_champions_cup['fixture']['optionMarkets']:
                     if option_market['name']['value'].lower() == 'resultado da partida':
