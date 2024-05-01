@@ -2181,6 +2181,12 @@ class ChromeAuto():
                     if jogo_empatado == None:
                         print('jogo com erro')                                                
                     elif jogo_empatado == True:
+                        self.testa_sessao()
+
+                        self.chrome.get(url_champions_cup)
+                        self.chrome.maximize_window()
+                        self.chrome.fullscreen_window()
+                        
                         self.is_for_real = True
                         self.qt_apostas_feitas = 0
                         self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')
