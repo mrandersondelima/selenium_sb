@@ -15,7 +15,7 @@ class TelegramBot:
                 await self.bot.send_message(text=mensagem, chat_id=chat_id_grupo, read_timeout=2, write_timeout=2, connect_timeout=2, pool_timeout=2)
             await self.bot.send_message(text=mensagem, chat_id=chat_id, read_timeout=2, write_timeout=2, connect_timeout=2, pool_timeout=2)
         except:
-            raise Exception
+            raise Exception('erro ao enviar mensagem')
 
 if __name__ == '__main__':
     telegram_bot = TelegramBot()
@@ -34,4 +34,4 @@ class TelegramBotErro:
                 await self.bot.send_message(text=mensagem, chat_id=chat_id_grupo, read_timeout=2, write_timeout=2, connect_timeout=2, pool_timeout=2)
             await self.bot.send_message(text=mensagem, chat_id=chat_id, read_timeout=2, write_timeout=2, connect_timeout=2, pool_timeout=2)
         except:
-            raise Exception
+            raise Exception('erro ao enviar mensagem')
