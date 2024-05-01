@@ -1006,7 +1006,7 @@ class ChromeAuto():
                     self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
                     print(f'saldo depois do resultado {self.saldo:.2f}' )                    
 
-                    self.meta_ganho = self.saldo * 0.00208    
+                    self.meta_ganho = self.saldo * 0.00228    
                     self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
                     await self.telegram_bot_erro.envia_mensagem(f'vai ficar rico, gabundo!\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
                     self.perda_acumulada = 0.0
