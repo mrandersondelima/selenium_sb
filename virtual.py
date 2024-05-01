@@ -1014,8 +1014,9 @@ class ChromeAuto():
                     self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')   
                     
                     self.qt_fake_bets = 0
+                    self.escreve_em_arquivo('qt_fake_bets.txt', '0', 'w')
                     self.qt_apostas_feitas = 4
-                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')      
+                    self.escreve_em_arquivo('qt_apostas_feitas.txt', '4', 'w')      
 
                     return                
 
@@ -2094,6 +2095,7 @@ class ChromeAuto():
         self.qt_apostas_feitas = self.le_de_arquivo('qt_apostas_feitas.txt', 'int')
         self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
         self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')      
+        self.qt_fake_bets = self.le_de_arquivo('qt_fake_bets.txt', 'int')      
         await self.le_saldo()
         self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                  
         
@@ -2190,20 +2192,23 @@ class ChromeAuto():
                 else:
                     if self.qt_fake_bets < 9:         
                         self.qt_fake_bets += 1
+                        self.escreve_em_arquivo('qt_fake_bets.txt', f'{self.qt_fake_bets}', 'w')
                         self.qt_apostas_feitas += 1           
+                        self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')
                         await self.espera_resultado_jogo_sem_aposta(champions_cup_start_date_string)
                         jogo_empatado = empatou()
                         if jogo_empatado == None:
-                            print('jogo com erro')                                                
+                            print('jogo com erro na fake bet')                                                
                         elif jogo_empatado == True:
                             self.is_for_real = False
                             self.qt_fake_bets = 0
+                            self.escreve_em_arquivo('qt_fake_bets.txt', f'{self.qt_fake_bets}', 'w')
                             self.qt_apostas_feitas = 4                            
-                            self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')
-                            print('jogo empatado')
+                            self.escreve_em_arquivo('qt_apostas_feitas.txt', '4', 'w')
+                            print('jogo empatado. falso green.')
                             self.numero_reds = 0
                         elif jogo_empatado == False:                        
-                            print('jogo não saiu empatado')
+                            print('jogo não saiu empatado na fake bet')
 
                         if self.qt_apostas_feitas >= 3:
                             self.is_for_real = False 
