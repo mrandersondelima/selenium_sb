@@ -2206,11 +2206,15 @@ class ChromeAuto():
                         if jogo_empatado == None:
                             print('jogo com erro na fake bet')                                                
                         elif jogo_empatado == True:
+                            try:
+                                self.telegram_bot_erro.envia_mensagem(f'falso green depois {self.qt_fake_bets} fake bets')
+                            except Exception as e:
+                                print(e)                            
                             self.is_for_real = False
                             self.qt_fake_bets = 0
-                            self.escreve_em_arquivo('qt_fake_bets.txt', f'{self.qt_fake_bets}', 'w')
+                            self.escreve_em_arquivo('qt_fake_bets.txt', '0', 'w')
                             self.qt_apostas_feitas = 4                            
-                            self.escreve_em_arquivo('qt_apostas_feitas.txt', '4', 'w')
+                            self.escreve_em_arquivo('qt_apostas_feitas.txt', '4', 'w')                                                       
                             print('jogo empatado. falso green.')
                             self.numero_reds = 0
                         elif jogo_empatado == False:                        
