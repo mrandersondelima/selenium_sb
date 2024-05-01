@@ -1380,6 +1380,16 @@ class ChromeAuto():
             return 0
             print(e)
 
+    def ganhou_ultima_aposta(self):
+        try:
+            jogos_encerrados = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=2"); return await d.json();')
+            jogo_encerrado = jogos_encerrados['betslips'][0]
+            if jogo_encerrado['state'] == 'Won':
+                return True
+            return False
+        except Exception as e:
+            raise Exception('não conseguiu conferir última aposta')
+
     async def multipla_zebra(self):
         print('multipla zebra')
         self.qt_apostas_feitas = self.le_de_arquivo('qt_apostas_feitas.txt', 'int')
@@ -2196,6 +2206,14 @@ class ChromeAuto():
                 if self.qt_apostas_feitas >= 3:
                     self.valor_aposta = 0.1
                 else:
+                    try:
+                        if self.ganhou_ultima_aposta():
+                            self.perda_acumulada = 0.0
+                            self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
+                    except Exception as e:
+                        self.testa_sessao()
+                        print(e)           
+                        continue         
                     self.valor_aposta = self.meta_ganho + self.perda_acumulada
 
                 try:
