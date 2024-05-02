@@ -1007,7 +1007,7 @@ class ChromeAuto():
                     self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
                     print(f'saldo depois do resultado {self.saldo:.2f}' )                    
 
-                    self.meta_ganho = self.saldo * 0.1  
+                    self.meta_ganho = self.saldo * 0.00776  
                     self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
                     await self.telegram_bot_erro.envia_mensagem(f'vai ficar rico, gabundo!\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
                     self.perda_acumulada = 0.0
@@ -2181,7 +2181,7 @@ class ChromeAuto():
                     if jogo_empatado == None:
                         print('jogo com erro')                                                
                     elif jogo_empatado == True:
-                        self.testa_sessao()
+                        await self.testa_sessao()
 
                         self.chrome.get(url_champions_cup)
                         self.chrome.maximize_window()
@@ -2196,7 +2196,7 @@ class ChromeAuto():
                         print('jogo não saiu empatado')
                     continue
                 else:
-                    if self.qt_fake_bets < 9:         
+                    if self.qt_fake_bets < 3:         
                         self.qt_fake_bets += 1
                         self.escreve_em_arquivo('qt_fake_bets.txt', f'{self.qt_fake_bets}', 'w')
                         self.qt_apostas_feitas += 1           
@@ -2207,7 +2207,7 @@ class ChromeAuto():
                             print('jogo com erro na fake bet')                                                
                         elif jogo_empatado == True:
                             try:
-                                self.telegram_bot_erro.envia_mensagem(f'falso green depois {self.qt_fake_bets} fake bets')
+                                await self.telegram_bot_erro.envia_mensagem(f'falso green depois {self.qt_fake_bets} fake bets')
                             except Exception as e:
                                 print(e)                            
                             self.is_for_real = False
@@ -2283,12 +2283,19 @@ class ChromeAuto():
                     try:
                         self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
                     except:
-                        print('Erro ao tentar fechar banner')   
+                        print('Erro ao tentar fechar banner')  
+
+                    try:
+                        self.chrome.execute_script("var botao = document.querySelector('.ui-icon.theme-ex.ng-star-inserted'); if (botao) { botao.click(); }")                    
+                    except Exception as e:                        
+                        print(e)  
 
                     clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{champions_cup_start_date_string}']")
                     count += 1
                 
                 if count == 5:
+                   
+
                     await self.testa_sessao()
                     raise Exception('raise exception 3')
 
@@ -3066,8 +3073,9 @@ if __name__ == '__main__':
     #numero_jogos_por_aposta = int(input())
 
     #apenas_analisa = int(input())   
+    chrome = None
 
-    chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)        
+    chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10) 
     chrome.disable_quickedit()
     while True:    
     #chrome.clica_sign_in()
@@ -3076,8 +3084,10 @@ if __name__ == '__main__':
             chrome.faz_login()  
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
             asyncio.run( chrome.empate())
-        except Exception as e:
+        except Exception as e:            
             chrome.sair()
+            chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10) 
+            chrome.disable_quickedit()
             print(e)
     #chrome.jogos_ira()
     #chrome.jogos_ira_depois_7_reds()
