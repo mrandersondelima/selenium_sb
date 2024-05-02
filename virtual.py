@@ -2207,7 +2207,7 @@ class ChromeAuto():
                             print('jogo com erro na fake bet')                                                
                         elif jogo_empatado == True:
                             try:
-                                await self.telegram_bot_erro.envia_mensagem(f'falso green depois {self.qt_fake_bets} fake bets')
+                                await self.telegram_bot.envia_mensagem(f'falso green depois {self.qt_fake_bets} fake bets')
                             except Exception as e:
                                 print(e)                            
                             self.is_for_real = False
