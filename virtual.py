@@ -2196,7 +2196,7 @@ class ChromeAuto():
                         print('jogo não saiu empatado')
                     continue
                 else:
-                    if self.qt_fake_bets < 3:         
+                    if self.qt_fake_bets < 6:         
                         self.qt_fake_bets += 1
                         self.escreve_em_arquivo('qt_fake_bets.txt', f'{self.qt_fake_bets}', 'w')
                         self.qt_apostas_feitas += 1           
