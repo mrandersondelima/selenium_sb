@@ -1007,7 +1007,7 @@ class ChromeAuto():
                     self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
                     print(f'saldo depois do resultado {self.saldo:.2f}' )                    
 
-                    self.meta_ganho = self.saldo * 0.00776  
+                    self.meta_ganho = self.saldo * 0.0261  
                     self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
                     await self.telegram_bot_erro.envia_mensagem(f'vai ficar rico, gabundo!\nsaldo: {self.saldo:.2f}\nmeta de ganho: {self.meta_ganho:.2f}\n{qt_apostas_restantes} apostas restantes')
                     self.perda_acumulada = 0.0
@@ -2196,7 +2196,7 @@ class ChromeAuto():
                         print('jogo não saiu empatado')
                     continue
                 else:
-                    if self.qt_fake_bets < 6:         
+                    if self.qt_fake_bets < 12:         
                         self.qt_fake_bets += 1
                         self.escreve_em_arquivo('qt_fake_bets.txt', f'{self.qt_fake_bets}', 'w')
                         self.qt_apostas_feitas += 1           
