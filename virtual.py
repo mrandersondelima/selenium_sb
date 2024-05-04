@@ -176,7 +176,6 @@ class ChromeAuto():
                         print('logou com sucesso')
                         return
                 except Exception as e:
-                    print(e)
                     print('não está logado')
 
                 vezes_fechar_banner = 0        
