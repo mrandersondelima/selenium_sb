@@ -2096,6 +2096,7 @@ class ChromeAuto():
         self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
         self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')      
         self.qt_fake_bets = self.le_de_arquivo('qt_fake_bets.txt', 'int')      
+        self.is_for_real = self.le_de_arquivo('is_for_real.txt', 'boolean')      
         await self.le_saldo()
         self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                  
         
@@ -2188,6 +2189,7 @@ class ChromeAuto():
                         self.chrome.fullscreen_window()
                         
                         self.is_for_real = True
+                        self.escreve_em_arquivo('is_for_real.txt', 'True', 'w')
                         self.qt_apostas_feitas = 0
                         self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')
                         print('jogo empatado')
@@ -2211,6 +2213,7 @@ class ChromeAuto():
                             except Exception as e:
                                 print(e)                            
                             self.is_for_real = False
+                            self.escreve_em_arquivo('is_for_real.txt', 'False', 'w')
                             self.qt_fake_bets = 0
                             self.escreve_em_arquivo('qt_fake_bets.txt', '0', 'w')
                             self.qt_apostas_feitas = 4                            
@@ -2222,6 +2225,7 @@ class ChromeAuto():
 
                         if self.qt_apostas_feitas >= 3:
                             self.is_for_real = False 
+                            self.escreve_em_arquivo('is_for_real.txt', 'False', 'w')
                         
                         continue
 

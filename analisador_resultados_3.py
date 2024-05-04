@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from subprocess import PIPE, Popen
 from time import sleep
 from telegram_bot import TelegramBot
+from credenciais import shell_path
 
 sequencia_jogos_mesmo_n_gols_1 = 0
 sequencia_jogos_mesmo_n_gols_2 = 0
@@ -19,7 +20,7 @@ telegram = TelegramBot()
 def empatou():
     print('entrou no método que lê resultado')
     tentativas_leitura = 0
-    url = '/home/anderson/novo_results.sh'
+    url = f'{shell_path}'
     
     while True:
 
