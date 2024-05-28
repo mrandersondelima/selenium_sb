@@ -41,7 +41,7 @@ def empatou():
                     gols = [ int(x) for x in saida_1[2].split() ] 
 
                     if gols[0] == gols[1]:
-                        return True
+                        return [gols[0], gols[1]]
                     else:
                         return False
                    
@@ -51,12 +51,14 @@ def empatou():
             else:
                 tentativas_leitura += 1
 
-            if tentativas_leitura >= 30:
+            if tentativas_leitura >= 60:
                 return None
         
             sleep(0.5)
         except Exception as e:
             tentativas_leitura += 1
+            if tentativas_leitura >= 60:
+                return None
             sleep(0.5)
             print('ERRO ', e)
 

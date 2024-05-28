@@ -87,7 +87,7 @@ class ChromeAuto():
                 with open(f'{nome_arquivo}', 'rb') as fp:
                     self.jogos_aleatorios = pickle.load(fp)
                 if len( self.jogos_aleatorios ) == 0:
-                    asyncio.run( self.analisa_resultados() )
+                    return
                 return
             except:            
                 print('erro ao ler o arquivo')
@@ -110,18 +110,18 @@ class ChromeAuto():
         odds7 = [0, 2.1,3,3.2]
         odds8 = [0, 2.37,3.2,2.95]
 
-        CASA_FAVORITO = [1,1,1,1,1,2,2,2,3]
-        FORA_FAVORITO = [3,3,3,3,3,2,2,2,1]
-        j1 = CASA_FAVORITO
-        j2 = CASA_FAVORITO
-        j3 = CASA_FAVORITO
-        j4 = CASA_FAVORITO
-        j5 = CASA_FAVORITO
-        j6 = CASA_FAVORITO
-        j7 = FORA_FAVORITO
-        j8 = CASA_FAVORITO
-        j9 = CASA_FAVORITO
-        j10 = CASA_FAVORITO
+        CF = [1,2,3]
+        FF = [1,2,3]
+        j1 = CF
+        j2 = CF
+        j3 = CF
+        j4 = CF
+        j5 = FF
+        j6 = FF
+        j7 = CF
+        j8 = FF
+        j9 = CF
+        j10 = CF
 
         i = 0
 
@@ -134,14 +134,17 @@ class ChromeAuto():
             while True:
                 jogo = []
                 for _ in range(self.numero_jogos_por_aposta):
-                    jogo.append(randint(0,8))
+                    jogo.append(randint(0,2))
 
-                soma_empates = jogo.count(5) + jogo.count(6) + jogo.count(7)
+                #print(jogo)
+
+                soma_empates = jogo.count(1)
                 soma_zebra = jogo.count(8)
 
-                if soma_empates in (1, 2, 3, 4, 5) and soma_zebra in (1, 2, 3, 4, 5):
+                if soma_empates <= 3:
                     break
 
+            print(len(self.jogos_aleatorios))
                 # valor_total = odds1[j1[jogo[0]]] * odds2[j2[jogo[1]]] *odds3[j3[jogo[2]]] *odds4[j4[jogo[3]]]*odds5[j5[jogo[4]]]*odds6[j6[jogo[5]]]*odds7[j7[jogo[6]]]*odds8[j8[jogo[7]]]
 
                 # if valor_total >= valor_maximo * 0.15 and valor_total <= valor_maximo * 0.45 and soma_empates <= 4:
@@ -150,13 +153,13 @@ class ChromeAuto():
             jogo = f'{j1[jogo[0]]} {j2[jogo[1]]} {j3[jogo[2]]} {j4[jogo[3]]} {j5[jogo[4]]} {j6[jogo[5]]} {j7[jogo[6]]} {j8[jogo[7]]} {j9[jogo[8]] if len(jogo) > 8 else ""} {j10[jogo[9]] if len(jogo) > 9 else ""}'            
             if self.jogos_aleatorios.get(jogo) == None:
                 self.jogos_aleatorios[jogo] = True
-                self.jogos[f'jogos_aleatorios{i%10}.pkl'][jogo] = True
+                self.jogos[f'jogos_aleatorios{i%2}.pkl'][jogo] = True
                 i += 1
 
         for jogo in self.jogos_aleatorios:
             print(jogo)
         
-        for i in range(10):
+        for i in range(2):
             with open(f'jogos_aleatorios{i}.pkl', 'wb') as fp:
                 pickle.dump(self.jogos[f'jogos_aleatorios{i}.pkl'], fp)
 
@@ -170,15 +173,19 @@ class ChromeAuto():
                 self.options.add_argument('--ignore-certificate-errors')
                 self.options.add_argument('--ignore-ssl-errors')
                 self.options.add_argument("--disable-extensions")
-                self.options.add_argument("--dns-prefetch-disable")
-                self.options.add_argument("--disable-gpu")          
+                self.options.add_argument("--dns-prefetch-disable")                
                 self.options.add_argument('--no-sandbox')      
+                self.options.add_argument('--window-size=1920x1080')
+                # self.options.add_argument('--headless')
+                # self.options.add_argument('--disable-gpu')
                 self.options.add_argument("--force-device-scale-factor=0.5")                                
                 self.options.add_argument("--log-level=3") 
                 self.options.add_argument("--silent")
+                # self.options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36")
                 # self.options.add_argument('--disk-cache-size')    
+                self.options.page_load_strategy = 'eager'
                 print('carregando driver...')            
-                self.chrome = webdriver.Chrome(options=self.options, service=ChromeService(ChromeDriverManager().install()))                
+                self.chrome = webdriver.Chrome(options=self.options)                
                 print('driver carregado...')            
                 # definimos quanto um script vai esperar pela resposta
                 self.chrome.get(site)
@@ -191,7 +198,7 @@ class ChromeAuto():
                 sleep(5)
 
 
-    def sair(self):
+    def sair(self):        
         self.chrome.quit()
 
     def clica_sign_in(self):
@@ -245,7 +252,6 @@ class ChromeAuto():
                         print('logou com sucesso')
                         return
                 except Exception as e:
-                    print(e)
                     print('não está logado')
 
                 vezes_fechar_banner = 0        
@@ -299,7 +305,7 @@ class ChromeAuto():
                     EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[class="login w-100 btn btn-primary"]' )  )) 
                 sleep(1)
 
-                print('achou botaão de login')
+                print('achou botaão de login')                
                 
                 botao_login.click()
 
@@ -307,10 +313,21 @@ class ChromeAuto():
 
                 sleep(5)         
 
-                # aqui vou tentar buscar algo da API pra ver se logou de verdade
-                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                if jogos_abertos['summary']['liveBetsCount']:
-                    print('logou com sucesso')
+                count = 0
+
+                while count < 5:
+                    try:
+                         # aqui vou tentar buscar algo da API pra ver se logou de verdade
+                        jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                        if jogos_abertos['summary']['liveBetsCount']:
+                            print('logou com sucesso')
+                        break
+                    except:
+                        sleep(3)
+                        count += 1
+
+                if count == 5:
+                    raise Exception()               
 
                 try:
                     cookies = WebDriverWait(self.chrome, 10).until(
@@ -344,29 +361,54 @@ class ChromeAuto():
     
     def faz_apostas(self, nome_arquivo):
         self.chrome.get('https://sports.sportingbet.com/pt-br/sports/favoritos/eventos')
-        self.chrome.maximize_window()
-        self.chrome.fullscreen_window()
+        # self.chrome.maximize_window()
+        # self.chrome.fullscreen_window()
 
+        try:    
+            banner = WebDriverWait(self.chrome, 5).until(
+                                EC.element_to_be_clickable((By.XPATH, f'/html/body/div[6]/div[2]/div/vn-overlay-messages/vn-content-messages/div/vn-content-message/div/span' ) ))   
+                                                                                                        
+            banner.click()
+        except:
+            print('erro ao fechar banner')
+
+        try:    
+            banner = WebDriverWait(self.chrome, 5).until(
+                                EC.element_to_be_clickable((By.XPATH, f'/html/body/div[3]/div[2]/div/vn-overlay-messages/vn-content-messages/div/vn-content-message/div/span' ) ))                                                                                                           
+            banner.click()
+        except:
+            print('erro ao fechar banner')
+
+        try:
+            self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) { lixeira.click(); }")
+            self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) {confirmacao.click(); }")                        
+        except Exception as e:                        
+            print('Não conseguiu limpar os jogos...')
+            print(e)      
+
+        contador_jogo = 0
+        n_jogos_total = len(self.jogos_aleatorios)
+        print('Gerando jogos...')
         while len( self.jogos_aleatorios ) > 0:
-            jogo_aleatorio, valor = self.jogos_aleatorios.popitem()
-
-            print(f'Gerando jogo {jogo_aleatorio}...')
+            contador_jogo += 1
+            print(f'{(contador_jogo/n_jogos_total*100):.2f}%')
+            jogo_aleatorio, valor = self.jogos_aleatorios.popitem()  
+            
             jogo_atual = 1
             for j in jogo_aleatorio.split():
                 clicou = False                
                 while not clicou:
                     try:
+                        #self.chrome.get_screenshot_as_file(filename='gerar_jogo.png')
                         jogo = WebDriverWait(self.chrome, 20).until(
                                 EC.element_to_be_clickable((By.XPATH, f'/html/body/vn-app/vn-dynamic-layout-slot[5]/vn-main/main/div/ms-main/div[1]/ng-scrollbar/div/div/div/div/ms-main-column/div/ms-favourites-dashboard/div[2]/div/ms-grid/div/ms-event-group/ms-event[{jogo_atual}]/div/div/ms-option-group[1]/ms-option[{j}]/ms-event-pick' ) ))                                   
                                                                         
                         jogo.click() 
                         clicou = True   
-                        jogo_atual += 1
+                        jogo_atual += 1                        
                         sleep(0.1)
                     except Exception as e:
-                        self.is_new_game = False
-                        self.chrome.quit()
-                        self.acessa('https://sports.sportingbet.com/pt-br/sports')           
+                        self.is_new_game = False         
                         self.faz_login()  
                         self.gera_jogos_aleatorios(nome_arquivo)   
                         self.faz_apostas(nome_arquivo) 
@@ -377,15 +419,15 @@ class ChromeAuto():
                     self.insere_valor_2()    
                     fez_aposta = True
                 except:
-                    self.is_new_game = False
-                    self.chrome.quit()
-                    self.acessa('https://sports.sportingbet.com/pt-br/sports')           
+                    self.is_new_game = False                    
                     self.faz_login()  
                     self.gera_jogos_aleatorios(nome_arquivo)   
                     self.faz_apostas(nome_arquivo)                    
 
             with open(nome_arquivo, 'wb') as fp:
                 pickle.dump(self.jogos_aleatorios, fp)
+
+        self.chrome.quit()
 
 
     def filtro(self, elemento):
@@ -2617,7 +2659,6 @@ class ChromeAuto():
     
     def insere_valor_2(self):
         self.valor_aposta = 0.10
-        print('entrou no insere valor')
 
         if self.valor_aposta < 0.10:
             self.valor_aposta = 0.10
@@ -3188,12 +3229,14 @@ if __name__ == '__main__':
 
     nome_arquivo = sys.argv[1]
     index = int(sys.argv[2])
+    is_new_game = True if sys.argv[3] == 'True' else False
     
 
-    chrome = ChromeAuto(numero_apostas=2000, numero_jogos_por_aposta=9, is_new_game=False)
-    chrome.acessa('https://sports.sportingbet.com/pt-br/sports')        
-     #chrome.clica_sign_in()
-    chrome.faz_login()  
+    chrome = ChromeAuto(numero_apostas=500, numero_jogos_por_aposta=10, is_new_game=is_new_game)
+    if not is_new_game:
+        chrome.acessa('https://sports.sportingbet.com/pt-br/sports')        
+        #chrome.clica_sign_in()
+        chrome.faz_login()  
     #chrome.busca_odds_acima_meio_gol_sem_login('Mais de 0,5', 1.9, 2.9 )
     #chrome.busca_odds_acima_meio_gol('Mais de 0,5', 1.75, 2.9, 1, False, False, 100.0)
     # parâmetros: mercado, limite_inferior, limite_superior, valor_aposta, teste, varios_jogos, meta_diaria
@@ -3204,7 +3247,9 @@ if __name__ == '__main__':
     #chrome.analisa_resultados()
     # elif apenas_analisa == 2:
     chrome.gera_jogos_aleatorios(nome_arquivo)
-    chrome.faz_apostas(nome_arquivo)
+    if not is_new_game:
+        chrome.faz_apostas(nome_arquivo)
+    #exit(0)
     #asyncio.run( chrome.analisa_resultados(index=index))
     
     # elif apenas_analisa == 3:

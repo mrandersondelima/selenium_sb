@@ -1,7 +1,7 @@
 numero_dias = 300
-greens_ao_dia = 15
-porcentagem = 0.0267
-banca_inicial = 9.36
+greens_ao_dia = 10
+porcentagem = 0.01355
+banca_inicial = 1000
 banca_final = banca_inicial
 qt_greens = 0
 
