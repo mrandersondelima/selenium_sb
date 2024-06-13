@@ -62,6 +62,49 @@ def empatou():
             sleep(0.5)
             print('ERRO ', e)
 
+
+def numero_gols():
+    print('entrou no método que lê resultado')
+    tentativas_leitura = 0
+    url = f'{shell_path}'
+    
+    while True:
+
+        try:
+            p_1 = Popen(['wsl', url], stdout=PIPE, stdin=PIPE)
+            stdout_1, stderr_1 = p_1.communicate()
+            if stderr_1:
+                print('erro')
+            saida_1 = stdout_1.decode().split('\n')
+            if len(saida_1) > 2:
+                result_id_1 = saida_1[1][1:]
+                leu_correto = True
+
+                if '_' not in saida_1[2]:
+
+                    print(saida_1[2])
+
+                    gols = [ int(x) for x in saida_1[2].split() ] 
+
+                    return gols[0] + gols[1]
+                   
+                else:
+                    tentativas_leitura += 1
+                    print(saida_1[2])
+            else:
+                tentativas_leitura += 1
+
+            if tentativas_leitura >= 60:
+                return None
+        
+            sleep(0.5)
+        except Exception as e:
+            tentativas_leitura += 1
+            if tentativas_leitura >= 60:
+                return None
+            sleep(0.5)
+            print('ERRO ', e)
+
 # estilo jogo = 1 usa martingale, estilo jogo = 2 vai fazer uma aposta depois que sair o primeiro jogo com apenas um gol
 def main_program():
     while True:

@@ -385,7 +385,7 @@ class ChromeAuto():
             if self.valor_aposta < 0.1:
                 self.valor_aposta = 0.1
 
-            if self.teste or self.qt_apostas_feitas <= 4:
+            if self.teste:
                 self.valor_aposta = 0.1
     
             try:
@@ -767,8 +767,12 @@ class ChromeAuto():
                                                 print(option['name']['value'])
                                                 print(option['price']['odds'])
                                                 option_id = option['id']
-                                                if ( '(2)' in option['name']['value'] or '(3)' in option['name']['value'] or '(4)' in option['name']['value'] ) and float( option['price']['odds'] ) >= 2.0 and 'handicap x' not in option['name']['value'].lower():
-                                                    jogos_aptos.append({ 'start_date': start_date_datetime, 'nome_evento': nome_evento, 'odd': float( option['price']['odds'] ), 'option_id' : option_id })                                                     
+                                                if self.qt_apostas_feitas % 2 == 0:
+                                                    if ( '(2)' in option['name']['value'] or '(3)' in option['name']['value'] or '(4)' in option['name']['value'] ) and float( option['price']['odds'] ) >= 2.0 and 'handicap x' not in option['name']['value'].lower() and 'handicap tie' not in option['name']['value']:
+                                                        jogos_aptos.append({ 'start_date': start_date_datetime, 'nome_evento': nome_evento, 'odd': float( option['price']['odds'] ), 'option_id' : option_id })                                                     
+                                                else:
+                                                    if ( '(-2)' in option['name']['value'] or '(-3)' in option['name']['value'] ) and float( option['price']['odds'] ) >= 2.0 and 'handicap x' not in option['name']['value'].lower() and 'handicap tie' not in option['name']['value']:
+                                                        jogos_aptos.append({ 'start_date': start_date_datetime, 'nome_evento': nome_evento, 'odd': float( option['price']['odds'] ), 'option_id' : option_id })                                                     
                                                 # if '(-2)' in option['name']['value'] and float( option['price']['odds'] ) >= 2.0 and 'handicap x' not in option['name']['value'].lower():
                                                 #     jogos_aptos.append({ 'start_date': start_date_datetime, 'nome_evento': nome_evento, 'odd': float( option['price']['odds'] ), 'option_id' : option_id })   
                                                 
@@ -780,7 +784,7 @@ class ChromeAuto():
                             for combinacao in array_mensagem_telegram:
                                 mensagem_telegram += combinacao['texto']                    
 
-                            jogos_aptos_ordenado = sorted(jogos_aptos, key=lambda el: ( el['start_date'] ) )
+                            jogos_aptos_ordenado = sorted(jogos_aptos, key=lambda el: ( el['start_date'], el['odd'] ) )
                             # aqui vou fazer um laço pelos jogos aptos e tentar inseri-los na aposta combinada
 
                             if len(jogos_aptos_ordenado) < 1:
@@ -3586,7 +3590,7 @@ if __name__ == '__main__':
     chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)
     chrome.acessa('https://sports.sportingbet.com/pt-br/sports')            
     chrome.faz_login()  
-    asyncio.run( chrome.handicap('Mais de 0,5', 2, 2.3, 1.00, False, False, 100.0))
+    asyncio.run( chrome.handicap('Mais de 0,5', 2, 2.3, 1.00, True, False, 100.0))
     # parâmetros: mercado, limite_inferior, limite_superior, valor_aposta, teste, varios_jogos, meta_diaria, qt_jogos_paralelos
     #chrome.altas_odds_empate( None, 6, 10, 1, True, False, None )
 
