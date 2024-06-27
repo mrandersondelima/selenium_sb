@@ -42,6 +42,7 @@ class ChromeAuto():
         self.aposta_com_erro = False        
         self.is_for_real = False
         self.maior_saldo = 0.0
+        self.qt_real_bets = 0
         return
     
     def le_de_arquivo(self, nome_arquivo, tipo):
@@ -221,14 +222,20 @@ class ChromeAuto():
 
                 if valor_ganho > self.perda_acumulada:                                        
                     self.perda_acumulada = 0.0
-                    await self.telegram_bot_erro.envia_mensagem(f'ganhou!\nsaldo: {self.saldo:.2f}\nmeta ganho: {self.meta_ganho:.2f}')
+                    await self.telegram_bot_erro.envia_mensagem(f'ganhou!\nsaldo: {self.saldo:.2f}\nmeta ganho: {self.meta_ganho:.2f}')                    
                 else:
                     self.perda_acumulada -= valor_ganho
 
                 self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')   
 
+                if self.qt_apostas_feitas == 1:                    
+                    self.qt_real_bets = 0
+                    self.escreve_em_arquivo('qt_real_bets.txt', '0', 'w')   
+
                 self.qt_apostas_feitas = 0
-                self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')     
+                self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')                     
+
+                  
                 
                 mercado_ultima_aposta = jogo_encerrado['bets'][0]['option']['name']
 
@@ -709,6 +716,7 @@ class ChromeAuto():
         self.numero_unders_seguidos = self.le_de_arquivo('numero_unders_seguidos.txt', 'int')
         self.mercado = self.le_de_arquivo('mercado.txt', 'string')
         self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
+        self.qt_real_bets = self.le_de_arquivo('qt_real_bets.txt', 'int')
         await self.le_saldo()
         self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                  
         
@@ -727,7 +735,7 @@ class ChromeAuto():
         jogos_abertos = await self.get(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
         if jogos_abertos['summary']['openBetsCount'] > 0:            
             self.mercado = jogos_abertos['betslips'][0]['bets'][0]['option']['name']            
-            await self.espera_resultado_over_under(0.00235)
+            await self.espera_resultado_over_under(0.00466)
 
         while True:           
             
@@ -1007,18 +1015,30 @@ class ChromeAuto():
 
                 if self.qt_apostas_feitas > 0:
                     self.valor_aposta = 0.1
+                else:
+                    self.qt_real_bets += 1
+                    self.escreve_em_arquivo('qt_real_bets.txt', f'{self.qt_real_bets}', 'w')
+                    if self.qt_real_bets > 1 and self.qt_real_bets <= 4 :
+                        self.valor_aposta = 0.1
+
+
+                if self.valor_aposta > self.saldo:
+                    self.valor_aposta = 0.1
+                    self.perda_acumulada = 0.0
+                    self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada}', 'w')
 
                 await self.insere_valor_dutching(None)
 
                 try:                   
 
-                    self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    if self.qt_apostas_feitas == 1 and ( self.qt_real_bets == 1 or self.qt_real_bets > 4 ):
+                        try:
+                            await self.telegram_bot.envia_mensagem(f'APOSTA REALIZADA')
+                        except:
+                            pass
 
-                    try:                    
-                        await self.telegram_bot.envia_mensagem(f"APOSTA {self.qt_apostas_feitas} REALIZADA.")
-                        self.horario_ultima_checagem = datetime.now()
-                    except Exception as e:
-                        print(e)
+                    self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    self.horario_ultima_checagem = datetime.now()
 
                     self.primeiro_alerta_depois_do_jogo = True
                     self.primeiro_alerta_sem_jogos_elegiveis = True                    
@@ -1029,7 +1049,7 @@ class ChromeAuto():
                 except Exception as e:
                     print(e)
 
-                await self.espera_resultado_over_under(0.00235)
+                await self.espera_resultado_over_under(0.00466)
             except Exception as e:
                 self.chrome.get_screenshot_as_file(f'{datetime.now()}.png')
                 try:
