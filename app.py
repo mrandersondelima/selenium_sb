@@ -421,24 +421,22 @@ class ChromeAuto():
                 raise Exception('erro ao clicar no botão de aposta')
                     
             sleep(0.2)
-
-                            # verificamos se há apostas em aberto
-            jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-
-            while jogos_abertos['summary']['openBetsCount'] == self.qt_apostas_mesmo_jogo:
-                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                sleep(2)
             
             try:
-                botao_fechar = WebDriverWait(self.chrome, 50).until(
+                botao_fechar = WebDriverWait(self.chrome, 60).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, '.betslip-result-actions .btn-primary' ) )) 
                 botao_fechar.click() 
 
             except:
                 # se ele não clicou no botão de fechar aposta é porque provavelmente ela não foi feita
-                raise Exception('erro ao clicar no botão de fechar')          
-                
+                raise Exception('erro ao clicar no botão de fechar')       
 
+            # verificamos se há apostas em aberto
+            jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+
+            while jogos_abertos['summary']['openBetsCount'] == self.qt_apostas_mesmo_jogo:
+                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                sleep(2)
 
             if jogos_abertos['summary']['openBetsCount'] > self.qt_apostas_mesmo_jogo:
                 try:
