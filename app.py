@@ -111,7 +111,9 @@ class ChromeAuto():
                 sleep(5)
 
     def sair(self):
+        print('saindo do chrome')
         self.chrome.quit()        
+        exit()
 
     async def get(self, url):
         n_errors = 0
@@ -3735,6 +3737,18 @@ class ChromeAuto():
             # f"//*[normalize-space(text()) = 'X']/ancestor::div/ancestor::ms-event-pick"
             mercado.click()             
 
+            cota = WebDriverWait(self.chrome, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "betslip-summary__original-odds") )) 
+            cota = float( cota.get_property('innerText') )
+
+            if cota < 1.5 or cota > 2:
+                try:
+                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+                except:
+                    print('Não conseguiu limpar os jogos...')
+                return False
+
             return await self.insere_valor_favorito()                                              
         except Exception as e:
             print('Erro no faz aposta')  
@@ -3742,7 +3756,7 @@ class ChromeAuto():
     
     async def favoritos_para_virar(self, mercado, limite_inferior, limite_superior, valor_aposta, teste, varios_jogos, meta_diaria):
 
-        self.tempo_pausa = 2 * 60        
+        self.tempo_pausa = 3 * 60        
         self.horario_ultima_checagem = datetime.now()
         self.times_favoritos = []        
         self.times_pra_apostar = []
@@ -3822,7 +3836,7 @@ class ChromeAuto():
                     print(datetime.now())
                     self.tempo_pausa = 10 * 60
                 else:
-                    self.tempo_pausa = 2 * 60
+                    self.tempo_pausa = 3 * 60
                     for fixture in fixtures['fixtures']:                               
                         try:
                             if fixture['scoreboard']['sportId'] != 4 or not fixture['liveAlert']:
@@ -3909,6 +3923,8 @@ class ChromeAuto():
                     with open('jogos_de_interesse.pkl', 'wb') as outp:
                         pickle.dump(self.jogos_de_interesse, outp, pickle.HIGHEST_PROTOCOL )
 
+            except KeyboardInterrupt as e:                
+                chrome.sair()
             except Exception as e:                
                 deu_erro = True                
                 self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
@@ -3929,8 +3945,7 @@ if __name__ == '__main__':
         chrome.faz_login()     
         asyncio.run( chrome.favoritos_para_virar('Mais de 0,5', 2.0, 2.5, 1.00, False, False, 100.0))
     except Exception as e:
-        print(e)
-        print('saiu. matando chrome.')
+        print(e)        
         chrome.sair()
         exit()
     # parâmetros: mercado, limite_inferior, limite_superior, valor_aposta, teste, varios_jogos, meta_diaria, qt_jogos_paralelos
