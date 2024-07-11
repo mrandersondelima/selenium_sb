@@ -3775,14 +3775,14 @@ class ChromeAuto():
             odd = float( odd.get_property('innerText') )
 
             if target_odd == None:
-                valor_da_primeira_aposta = 11.0 / odd
+                valor_da_primeira_aposta = 10.1 / odd
 
                 if valor_da_primeira_aposta >= 9.8:
                     return False
 
                 self.valor_aposta = valor_da_primeira_aposta
                 sobra = 10 - valor_da_primeira_aposta
-                self.target_odd = 11.0 / sobra
+                self.target_odd = 10.1 / sobra
                 
             else:
                 if odd < target_odd:
@@ -3793,7 +3793,7 @@ class ChromeAuto():
                         print('Não conseguiu limpar os jogos...')
                     return False
             
-                self.valor_aposta = 11.0 / target_odd
+                self.valor_aposta = 10.1 / target_odd
 
             return await self.insere_valor_favorito(target_odd)                                              
         except Exception as e:
@@ -3821,16 +3821,26 @@ class ChromeAuto():
                     if option_id == option['id']:
                         return float(option['price']['odds'])
         return None
+    
+    def get_market_quantity(self, option_markets):
+        count = 0
+        for option_market in option_markets:   
+            if option_market['name']['value'].lower() in ['total de gols', 'total goals']:
+                count += len( option_market['options'] )
+        return count
 
     def get_option_id(self, fixture_id, option_markets, soma_gols):
         try:
+            if self.get_market_quantity(option_markets) < 6:
+                return None
             for option_market in option_markets:   
                 if option_market['name']['value'].lower() in ['total de gols', 'total goals']:
+                    # não apostamos em jogos que não tenham muitos mercados de under e over, pois
+                    # a casa pode não nos oferecer o over
                     for option in option_market['options']:
-                        if option['name']['value'] == f'Menos de {soma_gols+2},5':      
+                        if option['name']['value'] == f'Menos de {soma_gols},5':      
                             option_id = option['id']                                                                                                      
-                            odd = float(option['price']['odds'])                                                                                                     
-                            print(odd)                            
+                            odd = float(option['price']['odds'])                                                                                                                           
                             return option_id
             return None
         except Exception as e:
@@ -3839,15 +3849,12 @@ class ChromeAuto():
     
     async def favoritos_para_virar(self, mercado, limite_inferior, limite_superior, valor_aposta, teste, varios_jogos, meta_diaria):
 
-        self.tempo_pausa = 3 * 60        
+        self.tempo_pausa = 2.5 * 60        
         self.horario_ultima_checagem = datetime.now()
         self.times_favoritos = []        
         self.times_pra_apostar = []
         self.varios_jogos = varios_jogos
         self.teste = teste     
-        
-
-        jogos_x_tempo_gols = dict()
 
         self.times_para_apostas_over = None
         try:
@@ -3888,12 +3895,15 @@ class ChromeAuto():
             deu_erro = False
             fixtures = None
 
-            jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-            self.bet_ids = jogo_aberto['summary']['betNumbers']
+            try:
+                jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                self.bet_ids = jogo_aberto['summary']['betNumbers']
 
-            self.inserted_fixture_ids = []
-            for open_event in jogo_aberto['summary']['openEvents']:
-                self.inserted_fixture_ids.append(open_event)
+                self.inserted_fixture_ids = []
+                for open_event in jogo_aberto['summary']['openEvents']:
+                    self.inserted_fixture_ids.append(open_event)
+            except:
+                self.testa_sessao()            
 
             for key in self.times_para_apostas_over.copy():
                 if key not in self.inserted_fixture_ids:
@@ -3922,15 +3932,16 @@ class ChromeAuto():
             try:      
                 fixtures = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/fixtures?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&state=Live&take=200&offerCategories=Gridable&offerMapping=Filtered&sortBy=StartDate&sportIds=4&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                                   
 
-                print('--- chamou fixtures de novo ---')
+                print('\n--- chamou fixtures de novo ---\n')
+                print(datetime.now())
 
                 if len( fixtures['fixtures'] ) == 0:
                     print('Sem jogos ao vivo...')
                     print(datetime.now())
                     self.tempo_pausa = 10 * 60
                 else:
-                    self.tempo_pausa = 3 * 60
                     aposta_feita = False
+                    is_any_target_odd_close = False
                     for fixture in fixtures['fixtures']:          
                         try:
                             self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
@@ -3942,28 +3953,33 @@ class ChromeAuto():
                             gols_casa = int( fixture['scoreboard']['score'].split(':')[0])
                             gols_fora = int( fixture['scoreboard']['score'].split(':')[1])
                             soma_gols = gols_casa + gols_fora
+                            periodo = fixture['scoreboard']['period']
 
                             if fixture['scoreboard']['sportId'] != 4 or not fixture['liveAlert']:
-                                continue
+                                continue       
 
                             nome_evento = self.formata_nome_evento( fixture['participants'][0]['name']['value'], fixture['participants'][1]['name']['value'], fixture['id'] )
-                            print(nome_evento)                                                                
 
                             if fixture_id in self.inserted_fixture_ids:       
                                 aposta_over = self.times_para_apostas_over.get(fixture_id)
                                 option_odd = self.get_option_odd(fixture['optionMarkets'], aposta_over['option_id'] )
-                                print('actual odd ', option_odd )
+                                if aposta_over and not aposta_over['bet_made']:
+                                    print(f'========= {nome_evento}') 
+                                    print('actual odd ', option_odd )
+                                    print('target odd ', aposta_over['target_odd'] )
+                                    if option_odd and periodo.lower() != 'intervalo' and abs( option_odd - aposta_over['target_odd'] ) < 0.5:
+                                        is_any_target_odd_close = True                                        
                                 if aposta_over and option_odd and not aposta_over['bet_made'] and option_odd >= float( aposta_over['target_odd'] ):
                                     aposta_feita = await self.faz_aposta(nome_evento, aposta_over['option_id'], aposta_over['target_odd'], soma_gols ) 
                                     if aposta_feita:
                                         aposta_over['bet_made'] = True
-                                continue                               
+                                continue                   
                             
                             name = fixture['name']['value']
                             numero_gols_atual = fixture['scoreboard']['score']      
                             placar = fixture['scoreboard']['score']      
                             numero_gols_atual = sum([int(x) for x in numero_gols_atual.split(':')])                                       
-                            periodo = fixture['scoreboard']['period']
+                            
                             periodId = fixture['scoreboard']['periodId']
                             is_running = fixture['scoreboard']['timer']['running']
                             cronometro = float(fixture['scoreboard']['timer']['seconds']) / 60.0
@@ -3993,25 +4009,40 @@ class ChromeAuto():
                             aposta_feita = False                            
                             if soma_gols >= 1:
                                 tempo_de_gol = floor( cronometro / soma_gols )
-                                print('tempo de gol ', tempo_de_gol)
-                                print('gols ', soma_gols)
-                                print('cronometro ', cronometro)
+                                # print('tempo de gol ', tempo_de_gol)
+                                # print('gols ', soma_gols)
+                                # print('cronometro ', cronometro)
                                 if tempo_de_gol <= 15:                                    
                                     option_markets = fixture['optionMarkets']
-                                    option_id = self.get_option_id(fixture_id, option_markets, soma_gols)
-                                    print(option_id)
-                                    if option_id:
-                                        option_odd = self.get_option_odd(option_markets, option_id)
-                                        if option_odd >= 1.12:
-                                            aposta_feita = await self.faz_aposta(nome_evento, option_id, None, soma_gols)                                
-                                            if aposta_feita:
-                                                jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                                                bet_number = jogo_aberto['betslips'][0]['betSlipNumber']
-                                                self.bet_ids.append(bet_number)
-                                                self.get_option_id_over(fixture_id, option_markets, f'Mais de {soma_gols+2},5', self.target_odd)                                            
-                                                continue
-                                        else:
-                                            print('odd muito baixa. pulando')
+                                    for n in range(4, 1, -1):
+                                        option_id = self.get_option_id(fixture_id, option_markets, soma_gols+n)
+                                        #print(option_id)
+                                        if option_id:
+                                            option_odd = self.get_option_odd(option_markets, option_id)
+                                            if option_odd >= 1.30:
+                                                aposta_feita = await self.faz_aposta(nome_evento, option_id, None, soma_gols)                                
+                                                if aposta_feita:
+                                                    jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                                                    bet_number = jogo_aberto['betslips'][0]['betSlipNumber']
+                                                    self.bet_ids.append(bet_number)
+                                                    self.get_option_id_over(fixture_id, option_markets, f'Mais de {soma_gols+n},5', self.target_odd)                                            
+                                                    break
+                                        # else:
+                                        #     option_id = self.get_option_id(fixture_id, option_markets, soma_gols+(n-1))
+                                        #     print(option_id)
+                                        #     if option_id:
+                                        #         option_odd = self.get_option_odd(option_markets, option_id)
+                                        #         if option_odd >= 1.70:
+                                        #             aposta_feita = await self.faz_aposta(nome_evento, option_id, None, soma_gols)                                
+                                        #             if aposta_feita:
+                                        #                 jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                                        #                 bet_number = jogo_aberto['betslips'][0]['betSlipNumber']
+                                        #                 self.bet_ids.append(bet_number)
+                                        #                 self.get_option_id_over(fixture_id, option_markets, f'Mais de {soma_gols+1},5', self.target_odd)                                            
+                                        #                 continue
+                                        #         else:
+                                        #             print('odd muito baixa. pulando...')
+
 
                             # jogo = self.jogos_de_interesse.get(fixture_id)
                             # aposta_feita = False
@@ -4070,7 +4101,15 @@ class ChromeAuto():
                 self.numero_apostas_feitas = 0
                 print(e)                
                 self.testa_sessao()
-                self.tempo_pausa = 1            
+                self.tempo_pausa = 1    
+
+            if is_any_target_odd_close:
+                print('target odd is close')
+                self.tempo_pausa = 30
+            else:
+                self.tempo_pausa = 2.5 * 60        
+
+            
             
             if not deu_erro:
                 print('Esperando...')
