@@ -2065,6 +2065,9 @@ class ChromeAuto():
 
         # self.faz_login()
 
+        qt_unders_seguidos = 0
+        qt_overs_seguidos = 0
+
         # input()
 
         while True:
@@ -2107,44 +2110,28 @@ class ChromeAuto():
                     self.espera_resultado_jogo_sem_aposta(horario_jogo)
                     numero_gols_ = numero_gols(self.url)
                     if numero_gols_ == None:
-                        self.qt_sem_dois_gols = -1                    
-                        try:
-                            await telegram.envia_mensagem(f"erro no {self.url.split('/')[-1]}")
-                        except Exception as e:
-                            traceback.print_exc() 
+                        qt_unders_seguidos = 0
+                        qt_overs_seguidos = 0
                     else:
-                        if self.qt_sem_dois_gols == -1:
-                            if numero_gols_ == 2:                            
-                                self.qt_sem_dois_gols = 0
+                        if numero_gols_ >= 3:
+                            qt_overs_seguidos += 1
+                            if qt_unders_seguidos >= 10:
+                                try:                                    
+                                    await telegram.envia_mensagem(f"{qt_unders_seguidos} jogos seguidos unders {self.url.split('/')[-1]}")
+                                except:
+                                    pass
+                            qt_unders_seguidos = 0
                         else:
-                            if numero_gols_ != 2:
-                                self.qt_sem_dois_gols += 1
-                            else:
-                                self.qt_sem_dois_gols = 0
-                        
-                    # try:
-                    #     if self.qt_sem_dois_gols % 5 == 0 and self.qt_sem_dois_gols >= 10:
-                    #         await telegram.envia_mensagem(f"{self.qt_sem_dois_gols} jogo sem dois gols {self.url.split('/')[-1]}")
-                    # except:
-                    #     traceback.print_exc()                 
+                            qt_unders_seguidos += 1
+                            if qt_overs_seguidos >= 7:
+                                try:                                    
+                                    await telegram.envia_mensagem(f"{qt_overs_seguidos} jogos seguidos overs {self.url.split('/')[-1]}")
+                                except:
+                                    pass
+                            qt_overs_seguidos = 0
 
-                    print(f'sequência de jogos sem dois gols: {self.qt_sem_dois_gols}')
-
-                    if self.qt_sem_dois_gols >= 0 and self.qt_sem_dois_gols < 4:                         
-                        self.bet_being_made = self.le_de_arquivo('bet_being_made.txt', 'boolean')
-                        if not self.bet_being_made:
-                            self.qt_apostas_feitas[self.game_index] = self.qt_sem_dois_gols
-                            self.hora_jogo = horario_jogo
-                            self.escreve_em_arquivo('bet_being_made.txt', 'True', 'w')
-                            # aqui vou ter que abrir outra instância do webdriver, dessa vez sem o headless
-                            # precisamos armazenar o valor do horário do próximo jogo para ter certeza de que o algoritmo não vai pular nenhum
-                            self.hora_jogo = await self.proximo_horario(self.hora_jogo)
-
-                            self.graphic_chrome = self.create_graphic_chrome()
-
-                            self.faz_login()
-
-                            await self.make_bets()
+                    print('qt_unders_seguidos ', qt_unders_seguidos)
+                    print('qt_overs_seguidos ', qt_overs_seguidos)
               
             except:
                 traceback.print_exc()    

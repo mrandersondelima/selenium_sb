@@ -27,6 +27,6 @@ def calcula_dutching( array_odds, meta ):
 
 
 if __name__ == '__main__':
-    array = calcula_dutching( [ 6, 12, 8, 9, 9, 9 ], 4 )     
+    array = calcula_dutching( [ 3.37, 7.48, 6.62 ], 5 )     
     print( array )
     print( sum( array ))

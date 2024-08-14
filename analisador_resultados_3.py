@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from subprocess import PIPE, Popen
+from subprocess import PIPE, Popen, TimeoutExpired
 from time import sleep
 from telegram_bot import TelegramBot
 from credenciais import shell_path
@@ -63,26 +63,27 @@ def empatou():
             print('ERRO ', e)
 
 
-def numero_gols():
+def numero_gols(shell_path):
     print('entrou no método que lê resultado')
     tentativas_leitura = 0
-    url = f'{shell_path}'
+    url = shell_path
     
     while True:
-
+        p_1 = None
         try:
             p_1 = Popen(['wsl', url], stdout=PIPE, stdin=PIPE)
-            stdout_1, stderr_1 = p_1.communicate()
+            stdout_1, stderr_1 = p_1.communicate(timeout=10)
             if stderr_1:
                 print('erro')
             saida_1 = stdout_1.decode().split('\n')
+            #print(saida_1)
             if len(saida_1) > 2:
                 result_id_1 = saida_1[1][1:]
                 leu_correto = True
 
                 if '_' not in saida_1[2]:
 
-                    print(saida_1[2])
+                    #print(saida_1[2])
 
                     gols = [ int(x) for x in saida_1[2].split() ] 
 
@@ -90,20 +91,31 @@ def numero_gols():
                    
                 else:
                     tentativas_leitura += 1
-                    print(saida_1[2])
+                    #print(saida_1[2])
             else:
                 tentativas_leitura += 1
 
-            if tentativas_leitura >= 60:
+            if tentativas_leitura >= 120:
                 return None
         
             sleep(0.5)
+        except TimeoutExpired as e:
+            p_1.kill()
+            try:
+                Popen(['taskkill', '/f', '/im', 'wslservice.exe'])
+            except:
+                print('não conseguiu matar o processo')
+            tentativas_leitura += 1
+            print('ERRO ', e)
+            sleep(0.5)
         except Exception as e:
             tentativas_leitura += 1
-            if tentativas_leitura >= 60:
-                return None
-            sleep(0.5)
             print('ERRO ', e)
+            sleep(0.5)
+        if tentativas_leitura >= 120:
+            return None
+        sleep(0.5)
+       
 
 # estilo jogo = 1 usa martingale, estilo jogo = 2 vai fazer uma aposta depois que sair o primeiro jogo com apenas um gol
 def main_program():

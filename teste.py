@@ -2962,17 +2962,19 @@ class ChromeAuto():
 
 if __name__ == '__main__': 
 
-    #numero_jogos_por_aposta = int(input())
+    horarios = ['13:24', '13:27', '13:30', '13:33', '13:36']
 
-    #apenas_analisa = int(input())   
+    agora = datetime.now()
 
-    chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)
-    chrome.acessa('https://sports.sportingbet.com/pt-br/sports')        
-    #chrome.clica_sign_in()
-
-    chrome.faz_login()  
-    chrome.teste()
+    hora = int(horarios[0].split(':')[0])
+    minuto = int(horarios[0].split(':')[1])
+    now = datetime.today()  
+    hora_do_jogo = datetime( now.year, now.month, now.day, hora, minuto, 0)
     
+    hora_atual = datetime.today()
+
+    print( hora_atual > hora_do_jogo)
+
     #chrome.jogos_ira()
     #chrome.jogos_ira_depois_7_reds()
 
