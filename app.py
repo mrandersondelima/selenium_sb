@@ -104,7 +104,8 @@ class ChromeAuto():
                 self.options.add_argument("--silent")
                 self.options.page_load_strategy = 'eager'
                 # self.options.add_argument('--disk-cache-size')                
-                self.chrome = webdriver.Chrome( service=ChromeService(executable_path=self.driver_path), options=self.options)            
+                self.options.add_argument("user-data-dir=C:\\Users\\anderson.morais\\AppData\\Local\\Google\\Chrome\\bet_data\\")    
+                self.chrome = webdriver.Chrome( service=ChromeService(executable_path=self.driver_path), options=self.options)
                 # definimos quanto um script vai esperar pela resposta
                 self.chrome.get(site)
                 self.chrome.maximize_window()
@@ -450,8 +451,8 @@ class ChromeAuto():
 
             if jogos_abertos['summary']['openBetsCount'] > len( self.inserted_fixture_ids ):
                 try:
-                    self.qt_apostas_feitas += 1
-                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')    
+                    self.qt_apostas_feitas_txt += 1
+                    self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')    
 
                     if self.aposta_mesmo_jogo:
                         self.qt_apostas_mesmo_jogo += 1                
@@ -479,9 +480,9 @@ class ChromeAuto():
 
                     self.saldo -= self.valor_aposta
 
-                    if self.qt_apostas_feitas >= 1:
+                    if self.qt_apostas_feitas_txt >= 1:
                         try:                    
-                            await self.telegram_bot.envia_mensagem(f"APOSTA {self.qt_apostas_feitas} REALIZADA.")
+                            await self.telegram_bot.envia_mensagem(f"APOSTA {self.qt_apostas_feitas_txt} REALIZADA.")
                             self.horario_ultima_checagem = datetime.now()
                         except Exception as e:
                             print(e)
@@ -1116,7 +1117,7 @@ class ChromeAuto():
         self.teste = teste
         saldo_inicial = 644.29
         self.le_saldo()      
-        self.qt_apostas_feitas = self.le_de_arquivo('qt_apostas_feitas.txt', 'int' )        
+        self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int' )        
         self.id_partida_atual = self.le_de_arquivo('id_partida_atual.txt', 'string')        
         self.perdeu_ultimo_jogo = self.le_de_arquivo('perdeu_ultimo_jogo.txt', 'boolean')        
         self.jogos_inseridos = self.read_set_from_disk('jogos_inseridos.txt')        
@@ -1265,8 +1266,8 @@ class ChromeAuto():
                                                                    
                                     self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
  
-                                    self.qt_apostas_feitas = 0
-                                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas}', 'w')                                    
+                                    self.qt_apostas_feitas_txt = 0
+                                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas_txt}', 'w')                                    
                                     # while self.saldo <= self.saldo_antes_aposta:
                                     #     self.le_saldo()
                                     #     contador += 1
@@ -1305,9 +1306,12 @@ class ChromeAuto():
                             print(datetime.now())
                             self.tempo_pausa = 7 * 60
                         else:
+                            periodos = set()
                             self.tempo_pausa = 2 * 60
                             for fixture in fixtures['fixtures']:                               
                                 try:
+                                    periodos.add( fixture['scoreboard']['period'])
+
                                     if fixture['scoreboard']['sportId'] != 4 or not fixture['liveAlert']:
                                         continue
 
@@ -1332,7 +1336,7 @@ class ChromeAuto():
 
                                     cronometro = float(fixture['scoreboard']['timer']['seconds']) / 60.0
 
-                                    if periodo.lower() == 'não foi iniciado':
+                                    if periodo.lower() == 'não foi iniciado' or periodo.lower() == 'intervalo':
                                         continue
                                     
                                     option_markets = fixture['optionMarkets']
@@ -1340,24 +1344,22 @@ class ChromeAuto():
                                         market_name = option_market['name']['value']
                                         if periodo in ['1º T', '1º Tempo', '1º tempo']:                                                                                
                                             if market_name.lower() in ['1º tempo - total de gols', 'total de gols - 1º tempo']:
-                                                for i in range(0,10):
-                                                    for option in option_market['options']:                                                        
-                                                        if option['name']['value'] == f'Mais de {i},5':
-                                                            odd = float(option['price']['odds'])
-                                                            option_id = option['id']
-                                                            print(option['name']['value'], odd, option_id )
-                                                            if odd >= 9 and odd <= 25:
-                                                                jogos_aptos.append({ 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })                                                     
+                                                for option in option_market['options']:                                                        
+                                                    if option['name']['value'] == f'Menos de {numero_gols_atual},5':
+                                                        odd = float(option['price']['odds'])
+                                                        option_id = option['id']
+                                                        print(option['name']['value'], odd, option_id )
+                                                        if odd >= 1.20 and odd <= 1.3:
+                                                            jogos_aptos.append({ 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })                                                     
                                         else:
-                                            if market_name.lower() in ['2º tempo - total de gols', 'total de gols - 2º tempo']:
-                                                for i in range(0, 15):
-                                                    for option in option_market['options']:                                                        
-                                                        if option['name']['value'] == f'Mais de {i},5':
-                                                            odd = float(option['price']['odds'])
-                                                            option_id = option['id']
-                                                            print(option['name']['value'], odd, option_id )
-                                                            if odd >= 9 and odd <= 25:
-                                                                jogos_aptos.append({ 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })                                                     
+                                            if market_name.lower() in ['total de gols', 'total goals']:                                                
+                                                for option in option_market['options']:                                                        
+                                                    if option['name']['value'] == f'Menos de {numero_gols_atual},5':
+                                                        odd = float(option['price']['odds'])
+                                                        option_id = option['id']
+                                                        print(option['name']['value'], odd, option_id )
+                                                        if odd >= 1.20 and odd <= 1.3:
+                                                            jogos_aptos.append({ 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })                                                     
                                            
                                 except Exception as e:                                    
                                     print('erro')                                    
@@ -1366,7 +1368,9 @@ class ChromeAuto():
                             for combinacao in array_mensagem_telegram:
                                 mensagem_telegram += combinacao['texto']                    
 
-                            # jogos_aptos_ordenado = sorted(jogos_aptos, key=lambda el: ( el['cronometro'] ) )
+                            print(periodos)
+
+                            jogos_aptos_ordenado = sorted(jogos_aptos, key=lambda el: ( -el['cronometro'] ) )
                             # aqui vou fazer um laço pelos jogos aptos e tentar inseri-los na aposta combinada
 
                             # if self.aposta_mesmo_jogo:
@@ -1374,7 +1378,7 @@ class ChromeAuto():
 
                             #print(jogos_aptos)
 
-                            if len(jogos_aptos) < 1:
+                            if len(jogos_aptos_ordenado) < 1:
                                 print('--- SEM JOGOS ELEGÍVEIS ---')
                                 if self.primeiro_alerta_sem_jogos_elegiveis:       
                                     try:
@@ -1397,7 +1401,7 @@ class ChromeAuto():
 
                             self.numero_apostas_feitas = 0
 
-                            for jogo_apto in jogos_aptos:
+                            for jogo_apto in jogos_aptos_ordenado:
 
                                 if self.varios_jogos:
                                     self.valor_aposta = valor_aposta
@@ -1436,11 +1440,11 @@ class ChromeAuto():
                                                 empate.click()     
                                                 clicou = True 
                                             else:                                                
-                                                mercado_1_tempo = WebDriverWait(self.chrome, 10).until(
-                                                    EC.presence_of_all_elements_located((By.XPATH, "//*[normalize-space(text()) = '2º Tempo']/ancestor::a"))) 
-                                                #EC.presence_of_all_elements_located  
-                                                mercado_1_tempo[index].click()                                                       
-                                                empate = WebDriverWait(self.chrome, 2).until(
+                                                # mercado_1_tempo = WebDriverWait(self.chrome, 10).until(
+                                                #     EC.presence_of_all_elements_located((By.XPATH, "//*[normalize-space(text()) = '2º Tempo']/ancestor::a"))) 
+                                                # #EC.presence_of_all_elements_located  
+                                                # mercado_1_tempo[index].click()                                                       
+                                                empate = WebDriverWait(self.chrome, 10).until(
                                                 EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{jogo_apto["option_id"]}"]' ) ))                                     
                                         # f"//*[normalize-space(text()) = 'X']/ancestor::div/ancestor::ms-event-pick"
                                                 empate.click()     
@@ -1469,8 +1473,8 @@ class ChromeAuto():
                                                 EC.presence_of_element_located((By.CLASS_NAME, "betslip-summary__original-odds") )) 
                                     cota = float( cota.get_property('innerText') )
 
-                                    # if cota < 2 or cota > 3:
-                                    #     raise ErroCotaForaIntervalo('cota fora do intervalo')
+                                    if cota < 1.2 or cota > 1.3:
+                                        raise ErroCotaForaIntervalo('cota fora do intervalo')
 
                                     # if self.qt_apostas_feitas > 1:
                                     #     self.perda_acumulada = 0.0             
@@ -1498,6 +1502,8 @@ class ChromeAuto():
                                 except Exception as e:
                                     print('Algo deu errado')  
                                     deu_erro = True
+                                    self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+                                    self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                                                                
                                     print(e)
                                     try:
                                         await self.telegram_bot_erro.envia_mensagem(e)
