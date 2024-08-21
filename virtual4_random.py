@@ -13,7 +13,7 @@ from time import sleep
 import pause
 import os
 from datetime import datetime, timedelta
-from credenciais import usuario, senha
+from credenciais import usuario, senha, user_data_dir
 from telegram_bot import TelegramBot, TelegramBotErro
 from utils import *
 from analisador_resultados_3 import numero_gols
@@ -97,7 +97,7 @@ class ChromeAuto():
         options.add_argument("--log-level=3") 
         options.add_argument("--no-sandbox")
         options.add_argument("--silent")
-        options.add_argument("user-data-dir=C:\\Users\\anderson.morais\\AppData\\Local\\Google\\Chrome\\bet_data\\")
+        options.add_argument(f"user-data-dir={user_data_dir}")
         options.page_load_strategy = 'eager'            
         return webdriver.Chrome( service=ChromeService(executable_path=driver_path), options=options) 
 
@@ -886,8 +886,20 @@ class ChromeAuto():
 
                     count = 0
                     texto = ''
-                    while 'total de gols' not in texto.lower() and count < 20:
+                    while 'total de gols' not in texto.lower() and count < 50:
                         try:                        
+
+                            if count % 4 == 0 and count != 0:
+                                clique_odd_acima_1_meio = WebDriverWait(self.graphic_chrome, 5).until(
+                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = '{self.options_market[self.options_market_index[self.index]]}']/ancestor::ms-event-pick")))
+                                clique_odd_acima_1_meio.click()
+
+                                sleep(1)
+
+                                clique_odd_acima_1_meio = WebDriverWait(self.graphic_chrome, 5).until(
+                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = '{self.options_market[self.options_market_index[self.index]]}']/ancestor::ms-event-pick")))
+                                clique_odd_acima_1_meio.click()
+
                             if i == 0:
                                 cupom = WebDriverWait(self.graphic_chrome, 5).until(
                                         EC.presence_of_element_located((By.CSS_SELECTOR, f".betslip-digital-pick__line-1.ng-star-inserted" ) ))
@@ -896,12 +908,14 @@ class ChromeAuto():
                                         EC.presence_of_element_located((By.CSS_SELECTOR, f"bs-digital-combo-bet-pick:nth-child({i+1}) .betslip-digital-pick__line-1.ng-star-inserted" ) ))
                             if cupom != None and cupom.get_property('innerText') != None:
                                 texto = cupom.get_property('innerText').lower().strip()
+                                sleep(0.5)
                                 print(texto)
+                                count += 1
                         except:             
                             self.fecha_banners()             
                             count += 1
 
-                    if count == 20:                                
+                    if count == 50:                                
                         raise Exception('raise exception 5')
                     
                     if i < n_combinados - 1:
@@ -986,6 +1000,7 @@ class ChromeAuto():
             print('exception no main loop')
             try:
                 self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) { lixeira.click(); }")
+                sleep(1)
                 self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) { confirmacao.click(); }")                        
             except Exception as e:
                 print('Não conseguiu limpar os jogos...')
