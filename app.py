@@ -434,13 +434,20 @@ class ChromeAuto():
                     EC.element_to_be_clickable((By.CSS_SELECTOR, '.betslip-result-actions.ng-star-inserted button' ) ))                 
             botao_fechar.click() 
 
-               # verificamos se há apostas em aberto
-            # jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-
             
+            jogos_abertos = None
+            for i in range(2):
+                sleep(3)
+                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+
+            self.bet_slip_number_1 = jogos_abertos['betslips'][0]['betSlipNumber']
+            self.escreve_em_arquivo('bet_slip_number_1.txt', self.bet_slip_number_1, 'w')
             # while jogos_abertos['summary']['openBetsCount'] == len( self.inserted_fixture_ids ):
             #     jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
             #     sleep(5)
+
+            self.is_bet_lost = False
+            self.escreve_em_arquivo('is_bet_lost.txt', 'False', 'w')
 
 
             self.qt_apostas_feitas_txt += 1
@@ -3825,7 +3832,8 @@ class ChromeAuto():
         self.tempo_pausa = 2 * 60        
         self.horario_ultima_checagem = datetime.now()
         self.times_favoritos = []        
-        self.is_bet_lost = False
+        self.bet_slip_number_1 = self.le_de_arquivo('bet_slip_number_1.txt', 'string')
+        self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
         self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
         self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
         try:
@@ -3855,18 +3863,18 @@ class ChromeAuto():
             deu_erro = False
             fixtures = None           
 
-            leu_jogos_abertos = False
+            # leu_jogos_abertos = False
 
-            while not leu_jogos_abertos:
-                try:
-                    jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+            # while not leu_jogos_abertos:
+            #     try:
+            #         jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
 
-                    self.inserted_fixture_ids = []
-                    for open_event in jogo_aberto['summary']['openEvents']:
-                        self.inserted_fixture_ids.append(open_event)
-                    leu_jogos_abertos = True
-                except:
-                    self.testa_sessao()                  
+            #         self.inserted_fixture_ids = []
+            #         for open_event in jogo_aberto['summary']['openEvents']:
+            #             self.inserted_fixture_ids.append(open_event)
+            #         leu_jogos_abertos = True
+            #     except:
+            #         self.testa_sessao()                  
                  
             try:      
                 self.le_saldo()
@@ -3885,14 +3893,25 @@ class ChromeAuto():
                 print(datetime.now())
 
                 live_fixtures_ids = []
+                
 
-                if len( self.inserted_fixture_ids) == 0 and not self.ja_conferiu_resultado:
+                bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
+
+                bet = bet['betslip']
+
+                self.inserted_fixture_ids.clear()
+                if bet['state'] == 'Open' and not self.is_bet_lost:
+                    self.inserted_fixture_ids.append(bet['bets'][0]['fixture']['compoundId'])
+
+                if bet['state'] != 'Open' and not self.ja_conferiu_resultado:
                     self.ja_conferiu_resultado = True
                     self.escreve_em_arquivo('ja_conferiu_resultado.txt', 'True', 'w')
 
-                    ultimo_jogo = self.chrome.execute_script("let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=Settled', { headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' } } ); return await d.json();")                                
+                    self.is_bet_lost = True
+                    self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
+                    
                     # só vai modificar o valor da aposta se tivermos perdido a última aposta
-                    ultimo_jogo = ultimo_jogo['betslips'][0]
+                    ultimo_jogo = bet
 
                     early_payout = ultimo_jogo['isEarlyPayout']
 
@@ -4032,6 +4051,7 @@ class ChromeAuto():
                                                 away_team_bold = ''
                                                 if gols_fora > gols_casa and gols_fora - gols_casa > 1:
                                                     self.is_bet_lost = True
+                                                    self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
                                                     print('bet já era...')
                                             else:
                                                 print(odd_time_2_resultado_partida)
@@ -4056,9 +4076,9 @@ class ChromeAuto():
                                 #     # matches_and_options[fixture_id]['casa_fora'] = 'fora'
                                 if matches_and_options[fixture_id]['casa_fora'] == 'casa':                      
                                     print(odd_time_1_resultado_partida)             
-                                    if odd_time_1_resultado_partida >= 3 and odd_time_1_resultado_partida < 3.9:
-                                        if fixture_id not in self.inserted_fixture_ids:
-                                            if len(self.inserted_fixture_ids) == 0:
+                                    if odd_time_1_resultado_partida >= 2.8:
+                                        if fixture_id not in self.inserted_fixture_ids:   
+                                            if len( self.inserted_fixture_ids ) == 0 and not abs(  gols_fora - gols_casa ) > 1:                                      
                                                 await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
                                                 break
                                                 # casa_fora_temp = matches_and_options[fixture_id]['casa_fora']
@@ -4067,9 +4087,9 @@ class ChromeAuto():
                                             #      await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
                                 else:
                                     print(odd_time_2_resultado_partida)
-                                    if odd_time_2_resultado_partida >= 3 and odd_time_2_resultado_partida < 3.9:
-                                        if fixture_id not in self.inserted_fixture_ids:
-                                            if len(self.inserted_fixture_ids) == 0:
+                                    if odd_time_2_resultado_partida >= 2.8:
+                                        if fixture_id not in self.inserted_fixture_ids:    
+                                            if len( self.inserted_fixture_ids ) == 0 and not abs(  gols_casa - gols_fora ) > 1:                          
                                                 await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
                                                 break
                                                 # casa_fora_temp = matches_and_options[fixture_id]['casa_fora']
@@ -4154,7 +4174,7 @@ class ChromeAuto():
                         EC.presence_of_element_located((By.CLASS_NAME, "betslip-summary__original-odds") )) 
             cota = float( cota.get_property('innerText') )
 
-            if cota < 3 and cota > 3.9:
+            if cota < 2.8 and cota > 3.9:
                  raise ErroCotaForaIntervalo('cota fora do intervalo')
 
             self.valor_aposta = ( ( self.perda_acumulada + self.meta_ganho ) / ( cota - 1 ) ) + 0.01                                
