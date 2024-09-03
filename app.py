@@ -488,8 +488,6 @@ class ChromeAuto():
                 print('Não conseguiu limpar os jogos...')            
             return False
 
-        return
-
     async def insere_valor_favorito(self, aposta_certa):
         jogos_abertos = None
 
@@ -3832,6 +3830,8 @@ class ChromeAuto():
         self.tempo_pausa = 2 * 60        
         self.horario_ultima_checagem = datetime.now()
         self.times_favoritos = []        
+        self.first_message_after_bet = False
+        self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
         self.bet_slip_number_1 = self.le_de_arquivo('bet_slip_number_1.txt', 'string')
         self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
         self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
@@ -3909,6 +3909,9 @@ class ChromeAuto():
 
                     self.is_bet_lost = True
                     self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
+
+                    self.same_match_bet = False
+                    self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')
                     
                     # só vai modificar o valor da aposta se tivermos perdido a última aposta
                     ultimo_jogo = bet
@@ -4000,6 +4003,7 @@ class ChromeAuto():
                             numero_gols_atual = sum([int(x) for x in numero_gols_atual.split(':')])                                       
                             
                             periodId = fixture['scoreboard']['periodId']
+                            periodo = fixture['scoreboard']['period']
                             is_running = fixture['scoreboard']['timer']['running']
                             cronometro = float(fixture['scoreboard']['timer']['seconds']) / 60.0
 
@@ -4052,6 +4056,14 @@ class ChromeAuto():
                                                 if gols_fora > gols_casa and gols_fora - gols_casa > 1:
                                                     self.is_bet_lost = True
                                                     self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
+                                                    self.same_match_bet = False
+                                                    self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')
+                                                    print('bet já era...')
+                                                if odd_time_1_chance_dupla >= 2.8:
+                                                    self.is_bet_lost = True
+                                                    self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
+                                                    self.same_match_bet = True
+                                                    self.escreve_em_arquivo('same_match_bet.txt', 'True', 'w')
                                                     print('bet já era...')
                                             else:
                                                 print(odd_time_2_resultado_partida)
@@ -4059,13 +4071,79 @@ class ChromeAuto():
                                                 away_team_bold = '**'
                                                 if gols_casa > gols_fora and gols_casa - gols_fora > 1:
                                                     self.is_bet_lost = True
+                                                    self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
+                                                    self.same_match_bet = False
+                                                    self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')
                                                     print('bet já era...')
-                                        try:
-                                            await self.telegram_bot.envia_mensagem(f"""{gols_casa} - {gol_casa} {home_team_bold} {home_team_name}
-{gols_fora} - {gol_fora} {away_team_bold} {away_team_name}
+                                                if odd_time_2_chance_dupla >= 2.8:
+                                                    self.is_bet_lost = True
+                                                    self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
+                                                    self.same_match_bet = True
+                                                    self.escreve_em_arquivo('same_match_bet.txt', 'True', 'w')
+                                                    print('bet já era...')
+                                        if not self.first_message_after_bet:
+                                            try:
+                                                await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
+{gols_casa} - {gol_casa} {home_team_name}
+{gols_fora} - {gol_fora} {away_team_name}
 {floor(cronometro)}""")
-                                        except:
-                                            pass
+                                            except:
+                                                pass
+                                        else:
+                                            self.first_message_after_bet = False
+                                continue
+
+                            if fixture_id in self.inserted_fixture_ids and self.same_match_bet:
+                                if matches_and_options[fixture_id]['casa_fora'] == 'casa':                                
+                                    if odd_time_1_chance_dupla >= 2.8:                                        
+                                        aposta_feita = False                                                                                      
+                                        aposta_feita = await self.make_bet(nome_evento, matches_and_options[fixture_id]['chance_dupla_option_id'])
+
+                                        if aposta_feita:            
+                                            bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
+
+                                            bet = bet['betslip']
+                                            self.first_message_after_bet = True       
+                                            self.same_match_bet = False                             
+                                            self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')
+                                            home_team_bold = '**'
+                                            away_team_bold = ''                                       
+                                            try:
+                                                await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
+{gols_casa} - {home_team_name}
+{gols_fora} - {away_team_name}
+{floor(cronometro)} {periodo}
+{self.cota}""")
+                                            except:
+                                                pass
+                                            break
+                                                # casa_fora_temp = matches_and_options[fixture_id]['casa_fora']
+                                                # matches_and_options[fixture_id]['casa_fora'] = 'casa' if casa_fora_temp == 'fora' else 'fora'
+                                            # else:
+                                            #      await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
+                                else:                                    
+                                    if odd_time_2_chance_dupla >= 2.8:                                       
+                                        aposta_feita = False
+                                        aposta_feita = await self.make_bet(nome_evento, matches_and_options[fixture_id]['chance_dupla_option_id'])                                                
+                                        
+                                        if aposta_feita:   
+                                            bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
+
+                                            bet = bet['betslip']
+                                            self.first_message_after_bet = True        
+                                            self.same_match_bet = False                             
+                                            self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')                                     
+                                            home_team_bold = ''
+                                            away_team_bold = '**'                                       
+                                            try:
+                                                await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
+{gols_casa} - {home_team_name}
+{gols_fora} - {away_team_name}
+{floor(cronometro)} {periodo}
+{self.cota}""")
+                                            except:
+                                                pass
+                                            break
                                 continue
 
                             if fixture_id in self.times_favoritos:
@@ -4077,9 +4155,29 @@ class ChromeAuto():
                                 if matches_and_options[fixture_id]['casa_fora'] == 'casa':                      
                                     print(odd_time_1_resultado_partida)             
                                     if odd_time_1_resultado_partida >= 2.8:
-                                        if fixture_id not in self.inserted_fixture_ids:   
-                                            if len( self.inserted_fixture_ids ) == 0 and not abs(  gols_fora - gols_casa ) > 1:                                      
-                                                await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
+                                        if fixture_id not in self.inserted_fixture_ids: 
+                                            aposta_feita = False                                              
+                                            if len( self.inserted_fixture_ids ) == 0 and not abs(  gols_fora - gols_casa ) > 1 and odd_time_1_chance_dupla >= 2.8:
+                                                aposta_feita = await self.make_bet(nome_evento, matches_and_options[fixture_id]['chance_dupla_option_id'])
+                                                
+                                            elif len( self.inserted_fixture_ids ) == 0 and not abs(  gols_fora - gols_casa ) > 1:
+                                                aposta_feita = await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
+
+                                            if aposta_feita:            
+                                                bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
+
+                                                bet = bet['betslip']
+                                                self.first_message_after_bet = True                                    
+                                                home_team_bold = '**'
+                                                away_team_bold = ''                                       
+                                                try:
+                                                    await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
+{gols_casa} - {home_team_name}
+{gols_fora} - {away_team_name}
+{floor(cronometro)} {periodo}
+{self.cota}""")
+                                                except:
+                                                    pass
                                                 break
                                                 # casa_fora_temp = matches_and_options[fixture_id]['casa_fora']
                                                 # matches_and_options[fixture_id]['casa_fora'] = 'casa' if casa_fora_temp == 'fora' else 'fora'
@@ -4089,8 +4187,28 @@ class ChromeAuto():
                                     print(odd_time_2_resultado_partida)
                                     if odd_time_2_resultado_partida >= 2.8:
                                         if fixture_id not in self.inserted_fixture_ids:    
-                                            if len( self.inserted_fixture_ids ) == 0 and not abs(  gols_casa - gols_fora ) > 1:                          
-                                                await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
+                                            aposta_feita = False
+                                            if len( self.inserted_fixture_ids ) == 0 and not abs(  gols_casa - gols_fora ) > 1 and odd_time_2_chance_dupla >= 2.8:
+                                                aposta_feita = await self.make_bet(nome_evento, matches_and_options[fixture_id]['chance_dupla_option_id'])
+                                                
+                                            elif len( self.inserted_fixture_ids ) == 0 and not abs(  gols_casa - gols_fora ) > 1:
+                                                aposta_feita = await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
+                                            
+                                            if aposta_feita:   
+                                                bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
+
+                                                bet = bet['betslip']
+                                                self.first_message_after_bet = True                                             
+                                                home_team_bold = ''
+                                                away_team_bold = '**'                                       
+                                                try:
+                                                    await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
+{gols_casa} - {home_team_name}
+{gols_fora} - {away_team_name}
+{floor(cronometro)} {periodo}
+{self.cota}""")
+                                                except:
+                                                    pass
                                                 break
                                                 # casa_fora_temp = matches_and_options[fixture_id]['casa_fora']
                                                 # matches_and_options[fixture_id]['casa_fora'] = 'casa' if casa_fora_temp == 'fora' else 'fora'
@@ -4100,14 +4218,14 @@ class ChromeAuto():
                             if fixture['scoreboard']['sportId'] != 4 or not fixture['liveAlert'] or gols_casa != gols_fora:
                                 continue    
 
-                            if odd_time_1_resultado_partida <= 1.65:
+                            if odd_time_1_resultado_partida <= 1.69:
                                 if fixture_id not in self.times_favoritos:
                                     self.times_favoritos.append(fixture_id)
-                                    matches_and_options[fixture_id] = { 'casa_fora': 'casa', 'option_id': time_1_resultado_partida_option_id, 'score': score, 'chance_dupla_option_id': time_2_chance_dupla_option_id }
-                            elif odd_time_2_resultado_partida <= 1.65:
+                                    matches_and_options[fixture_id] = { 'nome_evento': nome_evento, 'casa_fora': 'casa', 'option_id': time_1_resultado_partida_option_id, 'score': score, 'chance_dupla_option_id': time_1_chance_dupla_option_id }
+                            elif odd_time_2_resultado_partida <= 1.69:
                                  if fixture_id not in self.times_favoritos:
                                     self.times_favoritos.append(fixture_id)
-                                    matches_and_options[fixture_id] = { 'casa_fora': 'fora', 'option_id': time_2_resultado_partida_option_id, 'score': score, 'chance_dupla_option_id': time_1_chance_dupla_option_id }
+                                    matches_and_options[fixture_id] = { 'nome_evento': nome_evento, 'casa_fora': 'fora', 'option_id': time_2_resultado_partida_option_id, 'score': score, 'chance_dupla_option_id': time_2_chance_dupla_option_id }
 
                         
 
@@ -4177,16 +4295,20 @@ class ChromeAuto():
             if cota < 2.8 and cota > 3.9:
                  raise ErroCotaForaIntervalo('cota fora do intervalo')
 
+            self.cota = cota
+
             self.valor_aposta = ( ( self.perda_acumulada + self.meta_ganho ) / ( cota - 1 ) ) + 0.01                                
             
             self.valor_aposta = 0.1            
 
-            await self.insere_valor(None)   
+            aposta_feita = await self.insere_valor(None)
+            return aposta_feita   
         except ErroCotaForaIntervalo as e:
             print(e)
             self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
             sleep(0.5)
             self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                                                                
+            return False
         except Exception as e:
             print('Algo deu errado')                     
             print(e)
@@ -4200,7 +4322,8 @@ class ChromeAuto():
             self.chrome.maximize_window()
             self.chrome.fullscreen_window()
             self.numero_apostas_feitas = 0
-            self.tempo_pausa = 10                
+            self.tempo_pausa = 10   
+            return False             
 
 if __name__ == '__main__':
 
