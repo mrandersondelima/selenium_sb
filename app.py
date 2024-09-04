@@ -3839,6 +3839,8 @@ class ChromeAuto():
         self.varios_jogos = True
         self.odd_inferior = 1.75
         self.odd_superior = 2.5
+        self.gastos = self.le_de_arquivo('gastos.txt', 'float')
+        self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
 
         try:
             self.times_favoritos = self.read_array_from_disk('times_favoritos.json')
@@ -3877,6 +3879,7 @@ class ChromeAuto():
             if self.varios_jogos:
                 leu_jogos_abertos = False
 
+                jogo_aberto = None
                 while not leu_jogos_abertos:
                     try:
                         jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
@@ -3887,6 +3890,41 @@ class ChromeAuto():
                         leu_jogos_abertos = True
                     except:
                         self.testa_sessao()            
+                
+                jogos_encerrados = list( filter( lambda e: e not in jogo_aberto['summary']['betNumbers'], fixture_id_to_betslip.values() ) )
+
+                mensagem_telegram = ''
+
+                for betslip_number in jogos_encerrados:
+                    bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={betslip_number}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
+
+                    if bet['betslip']['state'] == 'Won':
+                        self.ganhos += float( bet['betslip']['grossPayout']['value'] )
+                        self.escreve_em_arquivo('ganhos.txt', f'{self.ganhos:.2f}', 'w')
+
+                    bet = bet['betslip']['bets'][0]
+                    nome = bet['fixture']['name']
+                    state = bet['state']
+
+                    
+
+                    fixture_id = bet['fixture']['compoundId']
+
+                    mensagem_telegram += f'{state} - {nome}\n'
+
+                    try:                        
+                        fixture_id_to_betslip.pop(fixture_id)
+                        matches_and_options.pop(fixture_id)
+                        self.times_favoritos.remove(fixture_id)
+                    except:
+                        pass
+
+                if mensagem_telegram != '':
+                    self.le_saldo()
+                    try:
+                        await self.telegram_bot_erro.envia_mensagem(f"{mensagem_telegram}\nSALDO: R$ {self.saldo:.2f}\nLUCRO: R$ {(self.ganhos-self.gastos):.2f}")
+                    except:
+                        pass
                  
             try:      
                 self.le_saldo()
@@ -3902,9 +3940,7 @@ class ChromeAuto():
                 fixtures = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/fixtures?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&state=Live&take=200&offerCategories=Gridable&offerMapping=Filtered&sortBy=StartDate&sportIds=4&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                                   
 
                 print('\n--- chamou fixtures de novo ---\n')
-                print(datetime.now())
-
-                live_fixtures_ids = []
+                print(datetime.now())                
 
                 bet = None
                 
@@ -3998,7 +4034,7 @@ class ChromeAuto():
                     for fixture in fixtures['fixtures']:                            
                         try:
                             fixture_id = fixture['id']
-                            live_fixtures_ids.append(fixture_id)
+                            
 
                             gols_casa = int( fixture['scoreboard']['score'].split(':')[0])
                             gols_fora = int( fixture['scoreboard']['score'].split(':')[1])
@@ -4123,7 +4159,10 @@ class ChromeAuto():
 
                                             bet = bet['betslip']
                                             self.first_message_after_bet = True       
-                                            self.same_match_bet = False                             
+                                            self.same_match_bet = False               
+                                            
+                                            self.gastos += float( bet['stake']['value'] )
+                                            self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w' )
                                             self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')                                   
                                             try:
                                                 await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
@@ -4148,7 +4187,9 @@ class ChromeAuto():
 
                                             bet = bet['betslip']
                                             self.first_message_after_bet = True        
-                                            self.same_match_bet = False                             
+                                            self.same_match_bet = False                
+                                            self.gastos += float( bet['stake']['value'] )
+                                            self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w' )             
                                             self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')                                                                        
                                             try:
                                                 await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
@@ -4192,7 +4233,9 @@ class ChromeAuto():
 
                                                 fixture_id_to_betslip[fixture_id] = self.bet_slip_number_1
 
-                                                self.first_message_after_bet = True                                                                       
+                                                self.first_message_after_bet = True       
+                                                self.gastos += float( bet['stake']['value'] )
+                                                self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w' )                                                                
                                                 try:
                                                     await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
 {gols_casa} - {home_team_name}
@@ -4228,6 +4271,8 @@ class ChromeAuto():
                                                 bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
 
                                                 bet = bet['betslip']
+                                                self.gastos += float( bet['stake']['value'] )
+                                                self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w' )
 
                                                 fixture_id_to_betslip[fixture_id] = self.bet_slip_number_1
                                                 self.first_message_after_bet = True                                                                               
@@ -4274,7 +4319,7 @@ class ChromeAuto():
                         except Exception as e:                                    
                             print(e)
                     
-                    #matches_and_options = { k: v for k, v in matches_and_options.items() if k in live_fixtures_ids }
+                    
 
                     # aqui vamos fazer a aposta
                     with open('matches_and_options.pkl', 'wb') as fp:

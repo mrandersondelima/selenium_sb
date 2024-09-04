@@ -4,7 +4,4 @@ __pycache__
 .env
 Perfil
 chromedriver-win64*
-*.txt
-*.json
 .png
-.pkl
