@@ -105,12 +105,10 @@ def numero_gols(shell_path):
                 Popen(['taskkill', '/f', '/im', 'wslservice.exe'])
             except:
                 print('não conseguiu matar o processo')
-            tentativas_leitura += 1
-            print('ERRO ', e)
+            tentativas_leitura += 1            
             sleep(0.5)
         except Exception as e:
-            tentativas_leitura += 1
-            print('ERRO ', e)
+            tentativas_leitura += 1            
             sleep(0.5)
         if tentativas_leitura >= 120:
             return None

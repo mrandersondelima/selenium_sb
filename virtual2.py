@@ -222,40 +222,51 @@ class ChromeAuto():
     async def espera_resultado_over_under(self, porcentagem, index_range):
         return await self.espera_resultado_over_under_um_jogo(porcentagem, index_range)
         
-        
+    async def return_next_open_bet_schedule(self, betslip):
+        if betslip['state'] != 'Open':
+            return None
+        for bet in betslip['bets']:
+            if bet['state'] == 'Open':
+                temp = datetime.strptime( bet['fixture']['date'], '%Y-%m-%dT%H:%M:%SZ' ) - timedelta(hours=3)
+                return temp.strftime('%H:%M')
+        return None        
+
     async def espera_resultado(self):
         
-        try:                         
-            jogos_abertos = await self.get( self.graphic_chrome, f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-            
-            bets = jogos_abertos['betslips'][0]['bets']
+        try:                     
+            while True:    
 
-            horario_jogo = bets[0]['fixture']['date']
-
-            horario_jogo = datetime.strptime( horario_jogo, '%Y-%m-%dT%H:%M:%SZ' )
-            horario_jogo = horario_jogo - timedelta(hours=3)
-            horario_jogo_string = horario_jogo.strftime( '%H:%M' )
-
-            print('HORÁRIO',  horario_jogo_string )
-            print('Esperando resultado da partida...')
-            hora = int(horario_jogo_string.split(':')[0])
-            minuto = int(horario_jogo_string.split(':')[1])
-            now = datetime.today()  
-            hora_do_jogo = datetime( now.year, now.month, now.day, hora, minuto, 0)
-            pause.until( hora_do_jogo + timedelta(minutes=1, seconds=30)  )
-
-            jogos_abertos = await self.get(self.graphic_chrome, f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-            while jogos_abertos['summary']['openBetsCount'] > 0:
-                print('Esperando resultado da aposta...')
                 sleep(5)
-                jogos_abertos = await self.get(self.graphic_chrome, f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
 
-            aposta_fechada = await self.get( self.graphic_chrome, f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=2"); return await d.json();')
-            if aposta_fechada['betslips'][0]['state'] == 'Won':
-                self.saldo += float( aposta_fechada['betslips'][0]['payout']['value'] )
-                return True
-            else:
-                return False           
+                bet = await self.get( self.graphic_chrome, f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
+
+                bet = bet['betslip']
+
+                if bet['state'] != 'Open':
+                    if bet['state'] == 'Won':
+                        self.saldo += float( bet['payout']['value'] )
+                        self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+                        return True
+                    else:
+                        return False  
+
+                horario = await self.return_next_open_bet_schedule(bet)
+
+                if horario == None:
+                    if bet['state'] == 'Won':
+                        self.saldo += float( bet['payout']['value'] )
+                        self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+                        return True
+                    else:
+                        return False    
+                else:
+                    print('HORÁRIO',  horario )
+                    print('Esperando resultado da partida...')
+                    hora = int(horario.split(':')[0])
+                    minuto = int(horario.split(':')[1])
+                    now = datetime.today()  
+                    hora_do_jogo = datetime( now.year, now.month, now.day, hora, minuto, 0)
+                    pause.until( hora_do_jogo + timedelta(minutes=1, seconds=30)  )                   
                
         except Exception as e:
             traceback.print_exc()
@@ -427,16 +438,18 @@ class ChromeAuto():
         while not fez_login_com_sucesso:
             try:
                 try:
-                    jogos_abertos = self.graphic_chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                    if not jogos_abertos['summary']['hasError']:
-                        print('logou com sucesso')
-                        return 
+                    for i in range(3):                    
+                        jogos_abertos = self.graphic_chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                        if not jogos_abertos['summary']['hasError']:
+                            print('logou com sucesso')
+                            return 
+                        sleep(1)
                 except Exception as e:
                     print('não está logado')
 
                 vezes_fechar_banner = 0        
 
-                while vezes_fechar_banner < 5:
+                while vezes_fechar_banner < 2:
                     try:
                         self.fecha_banners()
                     except:
@@ -545,7 +558,8 @@ class ChromeAuto():
                 self.graphic_chrome.get(url_acesso)
                 self.graphic_chrome.maximize_window()
                 self.graphic_chrome.fullscreen_window()
-                traceback.print_exc()
+                traceback.print_exc()   
+
 
     async def insere_valor_dutching(self, id_jogo):
         jogos_abertos = None
@@ -598,7 +612,7 @@ class ChromeAuto():
                 if count == 5:
                     await self.testa_sessao()
                     self.aposta_com_erro = True
-                    return
+                    return False
                             
                 sleep(0.2)
 
@@ -621,7 +635,7 @@ class ChromeAuto():
                 if count == 5:
                     await self.testa_sessao()
                     self.aposta_com_erro = True
-                    return
+                    return False
                         
                 sleep(1)
 
@@ -649,7 +663,7 @@ class ChromeAuto():
                 if count == 5:
                     await self.testa_sessao()
                     self.aposta_com_erro = True
-                    return
+                    return False
 
                 clicou = False
                 count = 0
@@ -830,9 +844,7 @@ class ChromeAuto():
        
         self.graphic_chrome.get(self.game_url)
         self.graphic_chrome.maximize_window()
-        self.graphic_chrome.fullscreen_window()      
-
-        await self.le_saldo()
+        self.graphic_chrome.fullscreen_window()               
 
         try:
             while True:                       
@@ -842,144 +854,168 @@ class ChromeAuto():
                     self.graphic_chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) {confirmacao.click(); }")                        
                 except Exception as e:                        
                     print('Não conseguiu limpar os jogos...')
-                    traceback.print_exc()             
+                    traceback.print_exc()   
 
-                self.fecha_banners()                                
+                n_combinados = 2
 
-                self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')   
+                for i in range(n_combinados):          
 
-                clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{self.hora_jogo}']")                  
+                    mercado = ''
+                    if i == 0:
+                        mercado = 'Acima de 2.5'
+                    else:
+                        mercado = 'Abaixo de 2.5'
 
-                count = 0
-                while not clicou and count < 3:                        
-                    try:
-                        self.fecha_banners()
-                        await self.testa_sessao()
-                        self.graphic_chrome.refresh()
-                        self.graphic_chrome.maximize_window()
-                        self.graphic_chrome.fullscreen_window()                 
+                    self.fecha_banners()                                
 
-                        clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{self.hora_jogo}']")                        
-                    except:
-                        sleep(2)                       
-                        count += 1
+                    self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')   
 
-                if count == 3:                                             
-                    await self.testa_sessao()
-                    raise Exception('raise exception 3')
-            
-                clicou = False
-                count = 0
-                while not clicou and count < 3:
-                    try:
-                        clique_odd_acima_1_meio = WebDriverWait(self.graphic_chrome, 10).until(
-                            EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = '2']/ancestor::ms-event-pick")))
-                        clique_odd_acima_1_meio.click()
-                        clicou = True
-                    except Exception as e:
-                        count += 1                        
-                        self.fecha_banners()                                               
-                        traceback.print_exc() 
+                    clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{self.hora_jogo}']")                  
 
-                if count == 3:
-                    await self.testa_sessao()
-                    raise Exception('raise exception 4')
+                    count = 0
+                    while not clicou and count < 3:                        
+                        try:
+                            self.fecha_banners()
+                            await self.testa_sessao()
+                            self.graphic_chrome.refresh()
+                            self.graphic_chrome.maximize_window()
+                            self.graphic_chrome.fullscreen_window()                 
 
-                count = 0
-                texto = ''
-                while 'total de gols' not in texto.lower() and count < 50:
-                    try:                        
-                        cupom = WebDriverWait(self.graphic_chrome, 10).until(
-                                EC.presence_of_element_located((By.CSS_SELECTOR, f".betslip-digital-pick__line-1.ng-star-inserted" ) ))
-                        
-                        if cupom != None and cupom.get_property('innerText') != None:
-                            texto = cupom.get_property('innerText').lower().strip()
-                            print(texto)
-                            sleep(0.5)
-                    except:             
-                        self.fecha_banners()               
-                        sleep(0.5)
-                        count += 1
+                            clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{self.hora_jogo}']")                        
+                        except:
+                            sleep(1)                       
+                            count += 1
 
-                if count == 50:                                
-                    await self.testa_sessao()
-                    raise Exception('raise exception 5')
+                    if count == 3:                                             
+                        raise Exception('raise exception 3')               
+
+
+                    clicou = False
+                    count = 0
+                    while not clicou and count < 3:
+                        try:
+                            clique_odd_acima_1_meio = WebDriverWait(self.graphic_chrome, 5).until(
+                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = '{mercado}']/ancestor::ms-event-pick")))
+                            clique_odd_acima_1_meio.click()
+                            clicou = True
+                        except Exception as e:
+                            count += 1                        
+                            self.fecha_banners()                                               
+                            traceback.print_exc() 
+
+                    if count == 3:
+                        raise Exception('raise exception 4')
+
+                    count = 0
+                    texto = ''
+                    while 'acima/abaixo' not in texto.lower() and count < 50:
+                        try:                        
+
+                            if count % 4 == 0 and count != 0:
+                                clique_odd_acima_1_meio = WebDriverWait(self.graphic_chrome, 5).until(
+                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = '{self.options_market[self.options_market_index[self.index]]}']/ancestor::ms-event-pick")))
+                                clique_odd_acima_1_meio.click()
+
+                                sleep(1)
+
+                                clique_odd_acima_1_meio = WebDriverWait(self.graphic_chrome, 5).until(
+                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = '{self.options_market[self.options_market_index[self.index]]}']/ancestor::ms-event-pick")))
+                                clique_odd_acima_1_meio.click()
+
+                            if i == 0:
+                                cupom = WebDriverWait(self.graphic_chrome, 5).until(
+                                        EC.presence_of_element_located((By.CSS_SELECTOR, f".betslip-digital-pick__line-1.ng-star-inserted" ) ))
+                            else:
+                                cupom = WebDriverWait(self.graphic_chrome, 5).until(
+                                        EC.presence_of_element_located((By.CSS_SELECTOR, f"bs-digital-combo-bet-pick:nth-child({i+1}) .betslip-digital-pick__line-1.ng-star-inserted" ) ))
+                            if cupom != None and cupom.get_property('innerText') != None:
+                                texto = cupom.get_property('innerText').lower().strip()
+                                sleep(0.5)
+                                print(texto)
+                                count += 1
+                        except:             
+                            self.fecha_banners()             
+                            count += 1
+
+                    if count == 50:                                
+                        raise Exception('raise exception 5')
+                    
+                    if i < n_combinados - 1:
+                        self.hora_jogo = await self.proximo_horario(self.hora_jogo) 
 
                 cota = WebDriverWait(self.graphic_chrome, 10).until(
                                             EC.presence_of_element_located((By.CLASS_NAME, "betslip-summary__original-odds") )) 
                 cota = float( cota.get_property('innerText') )
 
-                jogo_encerrado = await self.get(self.graphic_chrome, f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=2"); return await d.json();')
-
-                if jogo_encerrado['betslips'][0]['state'] == 'Won':                    
-                    self.perda_acumulada = 0.0
-                    self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
-
                 self.valor_aposta = ( ( self.meta_ganho + self.perda_acumulada ) / ( cota - 1.0 ) ) + 0.01
 
-                if self.valor_aposta > self.saldo:
+                if self.valor_aposta < 0.1 or self.valor_aposta > self.saldo:
                     self.valor_aposta = 0.1
-                    self.perda_acumulada = 0.0
-                    self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada}', 'w')    
 
-                if self.valor_aposta < 0.1:
-                    self.valor_aposta = 0.1                          
+                if self.modo_teste:
+                    self.valor_aposta = 0.1                           
 
                 aposta_realizada = await self.insere_valor_dutching(None)
 
                 if aposta_realizada:                           
                     jogo_aberto = await self.get(self.graphic_chrome, f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                    self.bet_id = jogo_aberto['betslips'][0]['betSlipNumber']                            
+                    self.bet_slip_number = jogo_aberto['betslips'][0]['betSlipNumber']                            
+                    self.escreve_em_arquivo('bet_slip_number.txt', f'{self.bet_slip_number}', 'w')
                     self.perda_acumulada += self.valor_aposta      
-                    self.saldo -= self.valor_aposta           
                     self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
-                    self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int')
-                    self.qt_apostas_feitas_txt += 1
-                    self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')
+                    self.saldo -= self.valor_aposta    
+                    self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                    
+                    self.qt_apostas_feitas_virtual = self.le_de_arquivo('qt_apostas_feitas_virtual.txt', 'int')
+                    self.qt_apostas_feitas_virtual += 1
+
+                    if self.qt_apostas_feitas_virtual % 5 == 0:
+                        try:
+                            await self.telegram_bot.envia_mensagem(f'aposta {self.qt_apostas_feitas_virtual} realizada')
+                        except:
+                            print('erro ao enviar mensagem')
+
+                    self.escreve_em_arquivo('qt_apostas_feitas_virtual.txt', f'{self.qt_apostas_feitas_virtual}', 'w')
 
                     self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
 
                     self.primeiro_alerta_depois_do_jogo = True
                     self.primeiro_alerta_sem_jogos_elegiveis = True            
 
-                    self.qt_apostas_feitas[self.game_index] += 1
-                    self.save_array_on_disk('qt_apostas_feitas.json', self.qt_apostas_feitas )
-
                     # try:                                                                   
                     #     await self.telegram_bot.envia_mensagem(f"APOSTA {self.qt_apostas_feitas[self.game_index]} REALIZADA {self.url.split('/')[-1]}")
                     # except:
                     #     print('não conseguiu enviar mensagem')                        
 
-                    ganhou_aposta = await self.espera_resultado()
-                    self.hora_jogo = await self.proximo_horario(self.hora_jogo) 
+                    ganhou_aposta = await self.espera_resultado()     
+                    self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')               
+                    self.bet_being_made = False
                     if ganhou_aposta:      
                         print('ganhou')
                         self.perda_acumulada = 0.0
                         self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
                         try:
-                            await self.telegram_bot_erro.envia_mensagem(f"ganhou depois de {self.qt_apostas_feitas_txt} apostas\nsaldo: {self.saldo:.2f}\n{self.url.split('/')[-1]}")
+                            await self.telegram_bot_erro.envia_mensagem(f"ganhou depois de {self.qt_apostas_feitas_virtual} apostas\nsaldo: {self.saldo:.2f}\n{self.url.split('/')[-1]}")
                         except:
                             traceback.print_exc()
-                        self.qt_apostas_feitas[self.game_index] = 0
-                        self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', '0', 'w')
-                        self.meta_ganho = 0.0035 * self.saldo
-                        self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')
-                        self.save_array_on_disk('qt_apostas_feitas.json', self.qt_apostas_feitas)
-                        #self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
+                        self.escreve_em_arquivo('qt_apostas_feitas_virtual.txt', '0', 'w')
+                        self.qt_apostas_feitas_virtual = 0
+                        
+                        if self.meta_progressiva:
+                            self.meta_ganho = 0.001 * self.saldo
+                            self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')
+                        
                         self.qt_sem_dois_gols = 0
-                        #self.graphic_chrome.quit()
-                        # return
+                        self.graphic_chrome.quit()
+                        return
                     else:
-                        print('perdeu')
-                        self.qt_sem_dois_gols += 1                      
-                        if self.qt_apostas_feitas[self.game_index] == 4:
-                            self.qt_apostas_feitas[self.game_index] = 0
-                            self.save_array_on_disk('qt_apostas_feitas.json', self.qt_apostas_feitas)
-                            self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
-                            self.graphic_chrome.quit()
-                            return        
+                        self.graphic_chrome.quit()
+                        print('perdeu')   
+                        return
 
                 else:
+                    self.bet_being_made = False
+                    self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
+                    self.graphic_chrome.quit()
                     print('ocorreu um erro ao fazer aposta')
                     raise Exception('erro ao fazer aposta')      
 
@@ -992,6 +1028,7 @@ class ChromeAuto():
             print('exception no main loop')
             try:
                 self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) { lixeira.click(); }")
+                sleep(1)
                 self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) { confirmacao.click(); }")                        
             except Exception as e:
                 print('Não conseguiu limpar os jogos...')
@@ -1000,14 +1037,14 @@ class ChromeAuto():
             self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
             self.aposta_com_erro = True
             self.is_for_real = False
+            self.qt_overs = 0
             self.numero_unders_seguidos = 0
             self.numero_overs_seguidos = 0    
             self.qt_apostas_feitas[self.game_index] = 0
             self.save_array_on_disk('qt_apostas_feitas.json', self.qt_apostas_feitas)
             self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
-            self.graphic_chrome.quit()
             return
-                       
+                           
     async def padroes(self):
         print('under over under')
         self.qt_apostas_feitas = self.read_array_from_disk('qt_apostas_feitas.json')
@@ -2047,14 +2084,32 @@ class ChromeAuto():
         temp = datetime.strptime( start_date, '%Y-%m-%dT%H:%M:%SZ' )
         temp = temp - timedelta(hours=3)
         return temp.strftime( '%H:%M' )
+    
+    async def is_logged_in(self):        
+        for i in range(3):       
+            try:                
+                jogos_abertos = self.graphic_chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                if not jogos_abertos['summary']['hasError']:
+                    print('logou com sucesso')
+                    return True                
+            except:                
+                pass
+            sleep(1)
+        return False
 
     async def analisa(self):
 
         self.qt_apostas_feitas = self.read_array_from_disk('qt_apostas_feitas.json')
         self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
-        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')         
+        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')       
+        self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')  
+        self.qt_apostas_feitas_virtual = self.le_de_arquivo('qt_apostas_feitas_virtual.txt', 'int')  
+        self.meta_progressiva = True
+        self.modo_teste = False
+        self.saldo = None
 
         telegram = TelegramBotErro()
+        self.qt_overs = 0
 
         # self.graphic_chrome = self.create_graphic_chrome()
 
@@ -2106,34 +2161,18 @@ class ChromeAuto():
 
                     self.espera_resultado_jogo_sem_aposta(horario_jogo)
                     numero_gols_ = numero_gols(self.url)
+                    print(numero_gols_)
                     if numero_gols_ == None:
-                        self.qt_sem_dois_gols = -1                    
-                        try:
-                            await telegram.envia_mensagem(f"erro no {self.url.split('/')[-1]}")
-                        except Exception as e:
-                            traceback.print_exc() 
+                        self.qt_overs = 0                  
                     else:
-                        if self.qt_sem_dois_gols == -1:
-                            if numero_gols_ == 2:                            
-                                self.qt_sem_dois_gols = 0
+                        if numero_gols_ >= 3:                            
+                            self.qt_overs += 1
                         else:
-                            if numero_gols_ != 2:
-                                self.qt_sem_dois_gols += 1
-                            else:
-                                self.qt_sem_dois_gols = 0
-                        
-                    # try:
-                    #     if self.qt_sem_dois_gols % 5 == 0 and self.qt_sem_dois_gols >= 10:
-                    #         await telegram.envia_mensagem(f"{self.qt_sem_dois_gols} jogo sem dois gols {self.url.split('/')[-1]}")
-                    # except:
-                    #     traceback.print_exc()                 
+                            self.qt_overs = 0
 
-                    print(f'sequência de jogos sem dois gols: {self.qt_sem_dois_gols}')
-
-                    if self.qt_sem_dois_gols >= 0 and self.qt_sem_dois_gols < 4:                         
+                    if self.qt_overs == 2:                         
                         self.bet_being_made = self.le_de_arquivo('bet_being_made.txt', 'boolean')
-                        if not self.bet_being_made:
-                            self.qt_apostas_feitas[self.game_index] = self.qt_sem_dois_gols
+                        if not self.bet_being_made:                           
                             self.hora_jogo = horario_jogo
                             self.escreve_em_arquivo('bet_being_made.txt', 'True', 'w')
                             # aqui vou ter que abrir outra instância do webdriver, dessa vez sem o headless
@@ -2142,7 +2181,14 @@ class ChromeAuto():
 
                             self.graphic_chrome = self.create_graphic_chrome()
 
-                            self.faz_login()
+                            self.graphic_chrome.get(self.game_url)
+                            self.graphic_chrome.maximize_window()
+                            self.graphic_chrome.fullscreen_window()
+
+                            if not await self.is_logged_in():
+                                self.faz_login()
+
+                            self.saldo = self.le_de_arquivo('saldo.txt', 'float')
 
                             await self.make_bets()
               

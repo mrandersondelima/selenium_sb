@@ -97,14 +97,15 @@ class ChromeAuto():
                 self.options.add_argument('--ignore-ssl-errors')
                 self.options.add_argument("--disable-extensions")
                 self.options.add_argument("--dns-prefetch-disable")
-                self.options.add_argument("--disable-gpu")          
+                self.options.add_argument("--disable-gpu")        
+                self.options.add_argument("--headless")  
                 self.options.add_argument('--no-sandbox')      
                 self.options.add_argument("--force-device-scale-factor=1")                                
                 self.options.add_argument("--log-level=3") 
                 self.options.add_argument("--silent")
                 self.options.page_load_strategy = 'eager'
                 # self.options.add_argument('--disk-cache-size')                
-                self.options.add_argument(f"user-data-dir={user_data_dir}")    
+                # self.options.add_argument(f"user-data-dir={user_data_dir}")    
                 self.chrome = webdriver.Chrome( service=ChromeService(executable_path=self.driver_path), options=self.options)
                 # definimos quanto um script vai esperar pela resposta
                 self.chrome.get(site)
@@ -456,9 +457,6 @@ class ChromeAuto():
             self.ja_conferiu_resultado = False
             self.escreve_em_arquivo('ja_conferiu_resultado.txt', 'False', 'w')
 
-            self.gastos += self.valor_aposta
-            self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w')
-
             self.perda_acumulada += self.valor_aposta
             self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
 
@@ -486,7 +484,6 @@ class ChromeAuto():
             #self.telegram_bot_erro.envia_mensagem('OCORREU UM ERRO AO TENTAR INSERIR VALOR DA APOSTA.')
             try:
                 self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
-                sleep(0.5)
                 self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
             except:
                 print('Não conseguiu limpar os jogos...')            
@@ -4353,884 +4350,65 @@ class ChromeAuto():
 
             print('Esperando...')
             sleep(self.tempo_pausa)    
-
-    async def is_logged_in(self):        
-        for i in range(3):       
-            try:                
-                jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                if not jogos_abertos['summary']['hasError']:
-                    print('logou com sucesso')
-                    return True                
-            except:                
-                pass
-            sleep(1)
-        return False
     
     async def zebra_para_marcar_primeiro(self):
 
-        if not await self.is_logged_in():
-            self.faz_login()        
-
-        self.tempo_pausa = 3 * 60        
-        self.horario_ultima_checagem = datetime.now()
-        self.times_favoritos = []        
-        self.first_message_after_bet = False
-        self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
-        self.bet_slip_number_1 = self.le_de_arquivo('bet_slip_number_1.txt', 'string')
-        self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
-        self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
-        self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
-        self.varios_jogos = True
-        self.odd_inferior = 1.75
-        self.odd_superior = 2.25
-        self.meta_progressiva = False
-        self.gastos = self.le_de_arquivo('gastos.txt', 'float')
-        self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
-        self.market_name = None
-        self.horario_ultima_checagem = datetime.now()
-        try:
-            self.times_favoritos = self.read_array_from_disk('times_favoritos.json')
-        except Exception as e:
-            print(e)
-            print('erro ao ler array')            
-        message_already_sent = []
-        self.times_pra_apostar = []          
-        matches = []       
-        matches_and_options = dict()
-        try: 
-            with open('matches_and_options.pkl', 'rb') as fp:
-                matches_and_options = pickle.load(fp)
-        except:
-            print('erro ao ler arquivo')
-
-        fixture_id_to_betslip = dict()
-        try:
-            with open('fixture_id_to_betslip.pkl', 'rb' ) as fp:
-                fixture_id_to_betslip = pickle.load(fp)
-        except:
-            print('erro ao ler arquivo')
-        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
-        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
-        self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int')        
-        self.le_saldo()
+        message_sent_fixture_id = []        
+        self.tempo_pausa = 2 * 60
 
         while True:
             # for bet_id in self.bet_ids.copy():                                
             #     if not self.is_bet_open(bet_id):
             #         self.bet_ids.remove(bet_id)               
-
-            deu_erro = False
-            fixtures = None           
-
-            diferenca_tempo = datetime.now() - self.horario_ultima_checagem
-            if diferenca_tempo.total_seconds() >= 3600:
-                try:
-                    await self.telegram_bot.envia_mensagem(f'SISTEMA RODANDO')
-                except Exception as e:
-                    print(e)
-                    print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')                        
-                self.horario_ultima_checagem = datetime.now()
-
-            if self.varios_jogos:
-                leu_jogos_abertos = False
-
-                jogo_aberto = None
-                while not leu_jogos_abertos:
-                    try:
-                        jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-
-                        self.inserted_fixture_ids = []
-                        for open_event in jogo_aberto['summary']['openEvents']:
-                            self.inserted_fixture_ids.append(open_event)
-                        leu_jogos_abertos = True
-                    except:
-                        self.testa_sessao()            
-                        sleep(30)
-                
-                jogos_encerrados = list( filter( lambda e: e not in jogo_aberto['summary']['betNumbers'], fixture_id_to_betslip.values() ) )
-
-                mensagem_telegram = ''
-
-                for betslip_number in jogos_encerrados:
-                    bet = None
-                    try:
-                        bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={betslip_number}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
-                    except:
-                        self.testa_sessao() 
-                        sleep(30)
-                        continue
-
-                    placar = None
-                    cronometro = None
-
-                    if bet['betslip']['state'] == 'Won':
-                        self.ganhos += float( bet['betslip']['grossPayout']['value'] )
-                        self.escreve_em_arquivo('ganhos.txt', f'{self.ganhos:.2f}', 'w')
-                    elif bet['betslip']['state'] == 'Canceled':
-                        self.gastos -= float( bet['betslip']['stake']['value'] )
-                        self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w')
-                    elif bet['betslip']['state'] == 'Lost':
-                        # vamos ver se o jogo ainda está rolando
-                        fixture_id = bet['betslip']['bets'][0]['fixture']['compoundId']
-                        try:
-                            jogo_aberto = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&scoreboardMode=Full&fixtureIds={fixture_id}&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                               
-                            if jogo_aberto.get('fixture') != None:
-                                placar = jogo_aberto['fixture']['scoreboard']['score']
-                                cronometro = int( jogo_aberto['fixture']['scoreboard']['timer']['seconds'] ) // 60
-                        except:
-                            sleep(5)
-                            continue
-
-                    bet = bet['betslip']['bets'][0]
-                    nome = bet['fixture']['name']
-                    state = bet['state']                    
-                    market_name = bet['market']['name'] 
-                    option_name = bet['option']['name']
-
-                    fixture_id = bet['fixture']['compoundId']
-                    resultado = f"{placar} aos {cronometro}" if placar != None else 'Fim de jogo'
-                    odd_before_score = ''
-                    if matches_and_options.get(fixture_id):
-                        odd_before_score = matches_and_options[fixture_id]['odd_before_score']
-
-                    mensagem_telegram += f"{state} - {nome}\n{market_name}: {option_name}\n{resultado}\nodd before score: {odd_before_score}\n"
-
-                    try:                        
-                        fixture_id_to_betslip.pop(fixture_id)
-                        matches_and_options.pop(fixture_id)
-                        self.times_favoritos.remove(fixture_id)
-                    except:
-                        pass
-
-                if mensagem_telegram != '':
-                    self.le_saldo()
-                    try:
-                        await self.telegram_bot_erro.envia_mensagem(f"{mensagem_telegram}\nSALDO: R$ {self.saldo:.2f}\nBALANÇO: R$ {(self.ganhos-self.gastos):.2f}")
-                    except:
-                        pass
-                 
-            try:                      
+   
+            try:     
 
                 fixtures = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/fixtures?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&state=Live&take=200&offerMapping=Filtered&sortBy=StartDate&sportIds=4&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                                   
 
-                print('\n--- chamou fixtures de novo ---\n')
-                print(datetime.now())                
-
-                bet = None
-                
-                if not self.varios_jogos:
-                    bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
-
-                    bet = bet['betslip']
-
-                    self.inserted_fixture_ids.clear()
-                    if bet['state'] == 'Open' and not self.is_bet_lost:
-                        self.inserted_fixture_ids.append(bet['bets'][0]['fixture']['compoundId'])
-
-                    if bet['state'] != 'Open' and not self.ja_conferiu_resultado:
-                        self.ja_conferiu_resultado = True
-                        self.escreve_em_arquivo('ja_conferiu_resultado.txt', 'True', 'w')
-
-                        self.is_bet_lost = True
-                        self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
-
-                        self.same_match_bet = False
-                        self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')
-
-                        if self.qt_apostas_feitas_txt == 2:
-                            self.qt_apostas_feitas_txt = 0
-                            self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', '0', 'w')
-                            self.perda_acumulada = 0.0                            
-                            self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
-                        
-                        # só vai modificar o valor da aposta se tivermos perdido a última aposta
-                        ultimo_jogo = bet
-
-                        early_payout = ultimo_jogo['isEarlyPayout']
-
-                        if ultimo_jogo['state'] == 'Lost':
-                            try:
-                                await self.telegram_bot_erro.envia_mensagem(f"Perdeu! R$ {self.saldo:.2f}\nBalanço: R$ {(self.ganhos-self.gastos):.2f}")
-                                self.primeiro_alerta_depois_do_jogo = False   
-                            except Exception as e:
-                                print(e)
-                                print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')
-                        elif ultimo_jogo['state'] == 'Canceled':
-
-                            print('aposta cancelada')
-
-                            self.qt_apostas_feitas_txt -= 1
-                            self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')
-                            
-                            valor_ultima_aposta = float( ultimo_jogo['stake']['value'])                                    
-
-                            self.perda_acumulada -= valor_ultima_aposta  
-                            self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')    
-
-                            self.gastos -= valor_ultima_aposta
-                            self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w')   
-
-                            self.saldo += valor_ultima_aposta                                                                                           
-                            
-                            
-                        elif ultimo_jogo['state'] == 'Won' and not early_payout:                                 
-                            # aqui o saldo deve ser maior do que depois da aposta, do contrário não estamos pegando o valor correto
-                            # try:
-                            #     await self.telegram_bot_erro.envia_mensagem(f'GREEN DEPOIS DE {self.qt_apostas_feitas} APOSTAS.')
-                            # except Exception as e:
-                            #     print(e)
-                            boost_payout = None
-                            try:
-                                boost_payout = float( ultimo_jogo['bestOddsGuaranteedInformation']['fixedPriceWinnings']['value'] )
-                            except:
-                                print('sem boost payout')
-
-                            if boost_payout:
-                                valor_ganho = boost_payout
-                            else:
-                                valor_ganho = float( ultimo_jogo['payout']['value'] )
-
-                            self.saldo += valor_ganho
-
-                            self.ganhos += valor_ganho
-                            self.escreve_em_arquivo('ganhos.txt', f'{self.ganhos:.2f}', 'w')
-
-                            # if self.saldo > self.maior_saldo:
-                            #     self.maior_saldo = self.saldo
-                            #     self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w')
-                            #     try:
-                            #         await self.telegram_bot_erro.envia_mensagem(f'Aumento de saldo: {self.maior_saldo:.2f}')
-                            #         self.primeiro_alerta_depois_do_jogo = False
-                            #     except:
-                            #         print('erro ao enviar mensagem ao telegram')
-                            # else:
-                            try:
-                                await self.telegram_bot_erro.envia_mensagem(f"Ganhou! R$ {self.saldo:.2f}\nBalanço: R$ {self.ganhos-self.gastos:.2f}")
-                                self.primeiro_alerta_depois_do_jogo = False   
-                                #self.saldo_inicio_dia = self.saldo
-                                #self.escreve_em_arquivo('saldo_inicio_dia.txt', f'{self.saldo_inicio_dia:.2f}', 'w')
-                                #self.horario_ultima_checagem = datetime.now()
-                                #else:
-                                #    await self.telegram_bot_erro.envia_mensagem(f'RECUPEROU! {self.saldo}')
-                            except Exception as e:
-                                print(e)
-                                print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')
-
-                            if self.meta_progressiva:
-                                self.meta_ganho = self.saldo * 0.01467
-                                self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')
-
-                           
-                                                            
-                            self.perda_acumulada = 0.0
-                            self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
-
-                            self.qt_apostas_feitas_txt = 0
-                            self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')    
-
                 if len( fixtures['fixtures'] ) == 0:
                     print('Sem jogos ao vivo...')
                     print(datetime.now())
-                    self.tempo_pausa = 10 * 60
-                    self.times_favoritos.clear()
-                    matches_and_options.clear()
-                    fixture_id_to_betslip.clear()
-                else:
-                    self.tempo_pausa = 3 * 60
-                    any_match_of_interest = False
-                    for fixture in fixtures['fixtures']:                            
-                        try:
-                            fixture_id = fixture['id']
-                            
-
-                            gols_casa = int( fixture['scoreboard']['score'].split(':')[0])
-                            gols_fora = int( fixture['scoreboard']['score'].split(':')[1])
-                            soma_gols = gols_casa + gols_fora
-                            periodo = fixture['scoreboard']['period']                                  
-
-                            nome_evento = self.formata_nome_evento( fixture['participants'][0]['name']['value'], fixture['participants'][1]['name']['value'], fixture['id'] )
-                            #print(nome_evento)
-
-                            home_team = list( filter( lambda el: el['properties']['type'] == 'HomeTeam' , fixture['participants']))
-                            home_team_name = home_team[0]['name']['value']    
-                            away_team = list( filter( lambda el: el['properties']['type'] == 'AwayTeam' , fixture['participants']))
-                            away_team_name = away_team[0]['name']['value']
-                            
-                            name = fixture['name']['value']
-                            numero_gols_atual = fixture['scoreboard']['score']      
-                            score = fixture['scoreboard']['score']     
-
-                            #print(score)
-
-                            if score != '0:0':                                
-                                continue
-
-                            numero_gols_atual = sum([int(x) for x in numero_gols_atual.split(':')])                                       
-                            
-                            periodId = fixture['scoreboard']['periodId']
-                            periodo = fixture['scoreboard']['period']
-                            is_running = fixture['scoreboard']['timer']['running']
-                            cronometro = float(fixture['scoreboard']['timer']['seconds']) / 60.0
-
-                            if periodo.lower() in ['não foi iniciado', 'suspenso']:
-                                print('não foi iniciado')
-                                continue
-
-                            time_1 = fixture['participants'][0]
-                            time_1_nome = time_1['name']['value']
-                            time_1_id = time_1['id']
-                            time_2 = fixture['participants'][1]
-                            time_2_nome = time_2['name']['value']                                                                      
-                            time_2_id = time_2['id']
-
-                            resultado_partida = list( filter(  lambda el: el['name']['value'].lower() in ['resultado da partida', 'match result'] ,fixture['optionMarkets'] ) )
-
-                            chance_dupla = list( filter( lambda el: el['name']['value'].lower() in ['chance dupla', 'double chance'], fixture['optionMarkets']))
-
-                            first_to_score = self.find_market( fixture['optionMarkets'] )
-                            if first_to_score == None:
-                                print('jogo não contém mercado')
-                                continue
-
-                            first_to_score_name = first_to_score['name']['value']
-                            self.market_name = first_to_score_name
-                            first_to_score = first_to_score['options']
-                            first_to_score_option_odd = None
-                            first_to_score_option_id = None
-                            if float( first_to_score[0]['price']['odds']) < float( first_to_score[2]['price']['odds'] ):
-                                first_to_score_option_id = first_to_score[0]['id']    
-                                first_to_score_option_odd = float( first_to_score[0]['price']['odds'])                            
-                            else:
-                                first_to_score_option_id = first_to_score[2]['id']
-                                first_to_score_option_odd = float( first_to_score[2]['price']['odds'])
-
-                            resultado_partida = resultado_partida[0]
-                            chance_dupla = chance_dupla[0]
-                            odd_time_1_resultado_partida = float( resultado_partida['options'][0]['price']['odds'] ) 
-                            odd_time_1_chance_dupla = float( chance_dupla['options'][0]['price']['odds'] )
-                            time_1_chance_dupla_option_id = chance_dupla['options'][0]['id']
-                            time_1_resultado_partida_option_id = resultado_partida['options'][0]['id']                               
-                            odd_time_2_resultado_partida = float( resultado_partida['options'][2]['price']['odds'] )   
-                            time_2_resultado_partida_option_id = resultado_partida['options'][2]['id']  
-                            odd_time_2_chance_dupla = float( chance_dupla['options'][1]['price']['odds'] )
-                            time_2_chance_dupla_option_id = chance_dupla['options'][1]['id']
-
-                           
-                            
-                            if fixture_id in self.inserted_fixture_ids and not self.is_bet_lost:
-                                
-                                if self.varios_jogos:
-                                    if not fixture_id_to_betslip.get(fixture_id):
-                                        continue
-                                    else:
-                                        betslip_number = fixture_id_to_betslip.get(fixture_id)
-                                        bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={betslip_number}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
-                                        bet = bet['betslip']
-
-                                if matches_and_options[fixture_id].get('odd_before_score') != None and first_to_score_option_odd > matches_and_options[fixture_id]['odd_before_score']:
-                                    matches_and_options[fixture_id]['odd_before_score'] = first_to_score_option_odd
-                                
-                                if not matches_and_options.get(fixture_id):
-                                    matches_and_options[fixture_id] = { 'score': score }
-                                else:                                
-                                    if matches_and_options[fixture_id]['score'] != score:
-
-                                        old_score = matches_and_options[fixture_id]['score'].split(':')
-                                        new_score = score.split(':')
-                                        gol_casa = ''
-                                        gol_fora = ''
-
-                                        if old_score[0] != new_score[0]:
-                                            gol_casa = '->'
-                                        else:
-                                            gol_fora = '->'
-
-                                        matches_and_options[fixture_id]['score'] = score
-
-                                        if not self.varios_jogos:                                            
-                                            if matches_and_options[fixture_id].get('casa_fora') != None:
-                                                if matches_and_options[fixture_id]['casa_fora'] == 'casa':
-                                                    print(odd_time_1_resultado_partida)                                                    
-                                                    if gols_fora > gols_casa and gols_fora - gols_casa > 1:
-                                                        self.is_bet_lost = True
-                                                        self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
-                                                        self.same_match_bet = False
-                                                        self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')
-                                                        print('bet já era...')
-                                                    if odd_time_1_chance_dupla >= self.odd_inferior:
-                                                        self.is_bet_lost = True
-                                                        self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
-                                                        self.same_match_bet = True
-                                                        self.escreve_em_arquivo('same_match_bet.txt', 'True', 'w')
-                                                        print('bet já era...')
-                                                else:
-                                                    print(odd_time_2_resultado_partida)                                                    
-                                                    if gols_casa > gols_fora and gols_casa - gols_fora > 1:
-                                                        self.is_bet_lost = True
-                                                        self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
-                                                        self.same_match_bet = False
-                                                        self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')
-                                                        print('bet já era...')
-                                                    if odd_time_2_chance_dupla >= self.odd_inferior:
-                                                        self.is_bet_lost = True
-                                                        self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
-                                                        self.same_match_bet = True
-                                                        self.escreve_em_arquivo('same_match_bet.txt', 'True', 'w')
-                                                        print('bet já era...')
-                                            
-                                        try:
-                                            await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
-{gols_casa} - {gol_casa} {home_team_name}
-{gols_fora} - {gol_fora} {away_team_name}
-{floor(cronometro)} {periodo}""")
-                                        except:
-                                            pass
-
-                                continue
-
-                            if fixture_id in self.times_favoritos:
-                                print(nome_evento)                                                            
-                                print('odd do mercado: ', first_to_score_option_odd )
-
-                            if ( fixture_id in self.times_favoritos and len( self.inserted_fixture_ids ) == 0 ) or ( fixture_id in self.times_favoritos and self.varios_jogos):
-                               
-
-                                aposta_feita = False
-                                if first_to_score_option_odd >= 1.4 and first_to_score_option_odd < 1.7:
-                                    aposta_feita = await self.make_bet_1(nome_evento, first_to_score_name, first_to_score_option_id)
-                                
-
-                                if aposta_feita:            
-                                    bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
-
-                                    bet = bet['betslip']
-
-                                    fixture_id_to_betslip[fixture_id] = self.bet_slip_number_1
-
-                                    self.first_message_after_bet = True                                                                                                        
-                                    try:
-                                        await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
-{gols_casa} - {home_team_name}
-{gols_fora} - {away_team_name}
-{floor(cronometro)} {periodo}
-{self.cota}
-APOSTA {self.qt_apostas_feitas_txt}""")
-                                    except:
-                                        pass
-                                    if not self.varios_jogos:
-                                        break
-                                                # casa_fora_temp = matches_and_options[fixture_id]['casa_fora']
-                                                # matches_and_options[fixture_id]['casa_fora'] = 'casa' if casa_fora_temp == 'fora' else 'fora'
-                                            # else:
-                                            #      await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
-
-                            if odd_time_1_resultado_partida <= 1.65 and gols_casa == gols_fora:
-                                any_match_of_interest = True
-                                if fixture_id not in self.times_favoritos:
-                                    self.times_favoritos.append(fixture_id)
-                                    matches_and_options[fixture_id] = { 'odd_before_score': first_to_score_option_odd, 'first_to_score': first_to_score_option_id, 'nome_evento': nome_evento, 'casa_fora': 'casa', 'option_id': time_1_resultado_partida_option_id, 'score': score, 'chance_dupla_option_id': time_1_chance_dupla_option_id, 'chance_dupla_option_id_zebra': time_2_chance_dupla_option_id }
-                            elif odd_time_2_resultado_partida <= 1.65 and gols_casa == gols_fora:
-                                 any_match_of_interest = True
-                                 if fixture_id not in self.times_favoritos:
-                                    self.times_favoritos.append(fixture_id)
-                                    matches_and_options[fixture_id] = { 'odd_before_score': first_to_score_option_odd, 'first_to_score': first_to_score_option_id, 'nome_evento': nome_evento, 'casa_fora': 'fora', 'option_id': time_2_resultado_partida_option_id, 'score': score, 'chance_dupla_option_id': time_2_chance_dupla_option_id, 'chance_dupla_option_id_zebra': time_1_chance_dupla_option_id }
-                       
-
-                            # chance_dupla = list( filter(  lambda el: el['name']['value'].lower() in ['chance dupla'] ,fixture['optionMarkets'] ) )
-
-                            # chance_dupla = chance_dupla[0]
-                            # odd_time_1_chance_dupla = float( chance_dupla['options'][0]['price']['odds'] )       
-                            # time_1_chance_dupla_option_id = chance_dupla['options'][0]['id']                         
-                            # odd_time_2_chance_dupla = float( chance_dupla['options'][1]['price']['odds'] )
-                            # time_2_chance_dupla_option_id = chance_dupla['options'][1]['id']                              
-                                                                               
-                        except IndexError as index_error:
-                            print(index_error)
-                            continue
-                        except Exception as e:                                    
-                            print(e)
-
-                    # aqui vamos fazer a aposta
-                    with open('matches_and_options.pkl', 'wb') as fp:
-                        pickle.dump(matches_and_options, fp)        
-                    with open('fixture_id_to_betslip.pkl', 'wb') as fp:
-                        pickle.dump(fixture_id_to_betslip, fp)   
-                    self.save_array_on_disk('times_favoritos.json', self.times_favoritos)
-
-            except KeyboardInterrupt as e:                
-                self.sair()
-            except Exception as e:                
-                deu_erro = True                
-                self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
-                self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
-                self.numero_apostas_feitas = 0
-                print(e)                
-                self.tempo_pausa = 1                                 
-
-            print('Esperando...')
-            sleep(self.tempo_pausa)    
-
-        
-    async def gols_fim_jogo_favoritos(self):
-
-        if not await self.is_logged_in():
-            self.faz_login()        
-
-        self.tempo_pausa = 2 * 60        
-        self.horario_ultima_checagem = datetime.now()
-        self.times_favoritos = []        
-        self.first_message_after_bet = False
-        self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
-        self.bet_slip_number_1 = self.le_de_arquivo('bet_slip_number_1.txt', 'string')
-        self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
-        self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
-        self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
-        self.varios_jogos = False
-        self.odd_inferior = 1.75
-        self.teste = False
-        self.odd_superior = 2.25
-        self.tolerancia_perdas = 10
-        self.meta_progressiva = False
-        self.gastos = self.le_de_arquivo('gastos.txt', 'float')
-        self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
-        self.market_name = None
-        self.horario_ultima_checagem = datetime.now()
-        self.bets_made = dict()
-        try:
-            self.times_favoritos = self.read_array_from_disk('times_favoritos.json')
-        except Exception as e:
-            print(e)
-            print('erro ao ler array')            
-        message_already_sent = []
-        self.times_pra_apostar = []          
-        matches = []       
-        matches_and_options = dict()
-        try: 
-            with open('matches_and_options.pkl', 'rb') as fp:
-                matches_and_options = pickle.load(fp)
-        except:
-            print('erro ao ler arquivo')
-
-        fixture_id_to_betslip = dict()
-        try:
-            with open('fixture_id_to_betslip.pkl', 'rb' ) as fp:
-                fixture_id_to_betslip = pickle.load(fp)
-        except:
-            print('erro ao ler arquivo')
-        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
-        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
-        self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int')        
-        self.le_saldo()
-
-        print('proceso do chrome ', self.chrome.service.process.pid)
-        self.escreve_em_arquivo('chrome_process_id.txt', f'{self.chrome.service.process.pid}', 'w' )        
-
-        while True:
-            # for bet_id in self.bet_ids.copy():                                
-            #     if not self.is_bet_open(bet_id):
-            #         self.bet_ids.remove(bet_id)          
-            self.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
-
-            deu_erro = False
-            fixtures = None           
-
-            diferenca_tempo = datetime.now() - self.horario_ultima_checagem
-            if diferenca_tempo.total_seconds() >= 3600:
-                try:
-                    await self.telegram_bot.envia_mensagem(f'SISTEMA RODANDO')
-                except Exception as e:
-                    print(e)
-                    print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')                        
-                self.horario_ultima_checagem = datetime.now()
-
-            try:                      
-
-                fixtures = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/cds-api/bettingoffer/fixtures?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&state=Live&take=150&offerMapping=Filtered&sortBy=StartDate&sportIds=4&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                                   
-
-                print('\n--- chamou fixtures de novo ---\n')
-                print(datetime.now())                
-
-                bet = None
-                
-                if not self.varios_jogos:
-                    bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
-
-                    bet = bet['betslip']
-
-                    self.inserted_fixture_ids.clear()
-                    if bet['state'] == 'Open' and not self.is_bet_lost:
-                        self.inserted_fixture_ids.append(bet['bets'][0]['fixture']['compoundId'])
-
-                    if bet['state'] != 'Open' and not self.ja_conferiu_resultado:
-                        self.ja_conferiu_resultado = True
-                        self.escreve_em_arquivo('ja_conferiu_resultado.txt', 'True', 'w')
-
-                        self.is_bet_lost = True
-                        self.escreve_em_arquivo('is_bet_lost.txt', 'True', 'w')
-
-                        self.same_match_bet = False
-                        self.escreve_em_arquivo('same_match_bet.txt', 'False', 'w')
-                        
-                        # só vai modificar o valor da aposta se tivermos perdido a última aposta
-                        ultimo_jogo = bet
-
-                        early_payout = ultimo_jogo['isEarlyPayout']
-
-                        if ultimo_jogo['state'] == 'Lost':
-                            try:
-                                await self.telegram_bot_erro.envia_mensagem(f"Perdeu! R$ {self.saldo:.2f}\nBalanço: R$ {(self.ganhos-self.gastos):.2f}")
-                                self.primeiro_alerta_depois_do_jogo = False   
-                            except Exception as e:
-                                print(e)
-                                print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')
-                        elif ultimo_jogo['state'] == 'Canceled':
-
-                            print('aposta cancelada')
-
-                            self.qt_apostas_feitas_txt -= 1
-                            self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')
-                            
-                            valor_ultima_aposta = float( ultimo_jogo['stake']['value'])                                    
-
-                            self.perda_acumulada -= valor_ultima_aposta  
-                            self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')    
-
-                            self.gastos -= valor_ultima_aposta
-                            self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w')   
-
-                            self.saldo += valor_ultima_aposta               
-                            self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
-                            
-                            
-                        elif ultimo_jogo['state'] == 'Won' and not early_payout:                                 
-                            # aqui o saldo deve ser maior do que depois da aposta, do contrário não estamos pegando o valor correto
-                            # try:
-                            #     await self.telegram_bot_erro.envia_mensagem(f'GREEN DEPOIS DE {self.qt_apostas_feitas} APOSTAS.')
-                            # except Exception as e:
-                            #     print(e)                            
-                            boost_payout = None
-                            try:
-                                boost_payout = float( ultimo_jogo['bestOddsGuaranteedInformation']['fixedPriceWinnings']['value'] )
-                            except:
-                                print('sem boost payout')
-
-                            if boost_payout:
-                                valor_ganho = boost_payout
-                            else:
-                                valor_ganho = float( ultimo_jogo['payout']['value'] )
-
-                            self.saldo += valor_ganho
-
-                            self.ganhos += valor_ganho
-                            self.escreve_em_arquivo('ganhos.txt', f'{self.ganhos:.2f}', 'w')
-
-                            # if self.saldo > self.maior_saldo:
-                            #     self.maior_saldo = self.saldo
-                            #     self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w')
-                            #     try:
-                            #         await self.telegram_bot_erro.envia_mensagem(f'Aumento de saldo: {self.maior_saldo:.2f}')
-                            #         self.primeiro_alerta_depois_do_jogo = False
-                            #     except:
-                            #         print('erro ao enviar mensagem ao telegram')
-                            # else:
-                            try:
-                                await self.telegram_bot_erro.envia_mensagem(f"Ganhou! R$ {self.saldo:.2f}\nBalanço: R$ {self.ganhos-self.gastos:.2f}")
-                                self.primeiro_alerta_depois_do_jogo = False   
-                                #self.saldo_inicio_dia = self.saldo
-                                #self.escreve_em_arquivo('saldo_inicio_dia.txt', f'{self.saldo_inicio_dia:.2f}', 'w')
-                                #self.horario_ultima_checagem = datetime.now()
-                                #else:
-                                #    await self.telegram_bot_erro.envia_mensagem(f'RECUPEROU! {self.saldo}')
-                            except Exception as e:
-                                print(e)
-                                print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')
-
-                            if self.meta_progressiva:
-                                self.meta_ganho = self.saldo * 0.01467
-                                self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                           
-                                                            
-                            self.perda_acumulada = 0.0
-                            self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
-
-                            self.qt_apostas_feitas_txt = 0
-                            self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')    
-                        
-                        if self.qt_apostas_feitas_txt % self.tolerancia_perdas == 0:
-                            self.perda_acumulada = 0.0  
-                            self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')                              
-
-                if len( fixtures['fixtures'] ) == 0:
-                    print('Sem jogos ao vivo...')
-                    print(datetime.now())
-                    self.tempo_pausa = 10 * 60
-                    self.times_favoritos.clear()
-                    matches_and_options.clear()
-                    fixture_id_to_betslip.clear()
                 else:
                     self.tempo_pausa = 2 * 60
-                    any_match_of_interest = False
                     for fixture in fixtures['fixtures']:                            
                         try:
                             fixture_id = fixture['id']
+
+                            is_red_card = False
+                            red_cards_1 = fixture['scoreboard']['redCards']['player1'].values()
+                            for n in red_cards_1:
+                                if n > 0:
+                                    is_red_card = True
+                            red_cards_2 = fixture['scoreboard']['redCards']['player2'].values()
+                            for n in red_cards_2:
+                                if n > 0:
+                                    is_red_card = True
                             
-
-                            gols_casa = int( fixture['scoreboard']['score'].split(':')[0])
-                            gols_fora = int( fixture['scoreboard']['score'].split(':')[1])
-                            soma_gols = gols_casa + gols_fora
-                            periodo = fixture['scoreboard']['period']                                  
-
                             nome_evento = self.formata_nome_evento( fixture['participants'][0]['name']['value'], fixture['participants'][1]['name']['value'], fixture['id'] )
 
-                            home_team = list( filter( lambda el: el['properties']['type'] == 'HomeTeam' , fixture['participants']))
-                            home_team_name = home_team[0]['name']['value']    
-                            away_team = list( filter( lambda el: el['properties']['type'] == 'AwayTeam' , fixture['participants']))
-                            away_team_name = away_team[0]['name']['value']
-                            
-                            name = fixture['name']['value']
-                            numero_gols_atual = fixture['scoreboard']['score']      
-                            score = fixture['scoreboard']['score']    
-
-                            numero_gols_atual = sum([int(x) for x in numero_gols_atual.split(':')])                                       
-                            
-                            periodId = fixture['scoreboard']['periodId']
-                            periodo = fixture['scoreboard']['period']
-                            is_running = fixture['scoreboard']['timer']['running']
-                            cronometro = float(fixture['scoreboard']['timer']['seconds']) / 60.0
-
-                            if periodo.lower() in ['não foi iniciado', 'suspenso', 'intervalo']:
-                                print(periodo.lower())
-                                continue
-
-                            time_1 = fixture['participants'][0]
-                            time_1_nome = time_1['name']['value']
-                            time_1_id = time_1['id']
-                            time_2 = fixture['participants'][1]
-                            time_2_nome = time_2['name']['value']                                                                      
-                            time_2_id = time_2['id']
-
-                            resultado_partida = list( filter(  lambda el: el['name']['value'].lower() in ['resultado da partida', 'match result'] ,fixture['optionMarkets'] ) )
-
-                            chance_dupla = list( filter( lambda el: el['name']['value'].lower() in ['chance dupla', 'double chance'], fixture['optionMarkets']))
-
-                            next_goal_odd_and_option_id = self.find_next_goal_odd_and_option_id( fixture['optionMarkets'], soma_gols )                            
-                            if next_goal_odd_and_option_id == None:
-                                continue
-
-                            next_goal_odd = next_goal_odd_and_option_id[0]
-                            next_goal_option_id = next_goal_odd_and_option_id[1]                            
-
-                            resultado_partida = resultado_partida[0]
-                            chance_dupla = chance_dupla[0]
-                            odd_time_1_resultado_partida = float( resultado_partida['options'][0]['price']['odds'] ) 
-                            odd_time_1_chance_dupla = float( chance_dupla['options'][0]['price']['odds'] )
-                            time_1_chance_dupla_option_id = chance_dupla['options'][0]['id']
-                            time_1_resultado_partida_option_id = resultado_partida['options'][0]['id']                               
-                            odd_time_2_resultado_partida = float( resultado_partida['options'][2]['price']['odds'] )   
-                            time_2_resultado_partida_option_id = resultado_partida['options'][2]['id']  
-                            odd_time_2_chance_dupla = float( chance_dupla['options'][1]['price']['odds'] )
-                            time_2_chance_dupla_option_id = chance_dupla['options'][1]['id']                           
-                            
-                            if fixture_id in self.inserted_fixture_ids:
-                                continue                                
-
-                            if fixture_id in self.times_favoritos:
-                                print(nome_evento)                                                            
-                                print('odd do mercado: ', next_goal_odd )
-
-                            if ( fixture_id in self.times_favoritos and len( self.inserted_fixture_ids ) == 0 ) or ( fixture_id in self.times_favoritos and self.varios_jogos):
-                               
-                                aposta_feita = False
-                                if next_goal_odd >= 3.3 and next_goal_odd < 4 and self.bets_made.get(fixture_id+periodo) == None:                                    
-                                    aposta_feita = await self.make_bet_2( nome_evento, periodo, next_goal_option_id )                                                                        
-
-                                if aposta_feita:            
-                                    self.bets_made[fixture_id+periodo] = True                                 
-
-                                    bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number_1}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
-
-                                    bet = bet['betslip']
-
-                                    fixture_id_to_betslip[fixture_id] = self.bet_slip_number_1
-
-                                    self.first_message_after_bet = True                                                                                                        
-                                    try:
-                                        await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
-{gols_casa} - {home_team_name}
-{gols_fora} - {away_team_name}
-{floor(cronometro)} {periodo}
-PERDA ACUMULADA: R$ {self.perda_acumulada:.2f}
-APOSTA {self.qt_apostas_feitas_txt}""")
-                                    except:
-                                        pass
-                                    if not self.varios_jogos:
-                                        break
-                                                # casa_fora_temp = matches_and_options[fixture_id]['casa_fora']
-                                                # matches_and_options[fixture_id]['casa_fora'] = 'casa' if casa_fora_temp == 'fora' else 'fora'
-                                            # else:
-                                            #      await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
-
-                            if odd_time_1_resultado_partida <= 1.65 and gols_casa == gols_fora:
-                                any_match_of_interest = True
-                                if fixture_id not in self.times_favoritos:
-                                    self.times_favoritos.append(fixture_id)                                    
-                            elif odd_time_2_resultado_partida <= 1.65 and gols_casa == gols_fora:
-                                 any_match_of_interest = True
-                                 if fixture_id not in self.times_favoritos:
-                                    self.times_favoritos.append(fixture_id)                                
-                       
-
-                            # chance_dupla = list( filter(  lambda el: el['name']['value'].lower() in ['chance dupla'] ,fixture['optionMarkets'] ) )
-
-                            # chance_dupla = chance_dupla[0]
-                            # odd_time_1_chance_dupla = float( chance_dupla['options'][0]['price']['odds'] )       
-                            # time_1_chance_dupla_option_id = chance_dupla['options'][0]['id']                         
-                            # odd_time_2_chance_dupla = float( chance_dupla['options'][1]['price']['odds'] )
-                            # time_2_chance_dupla_option_id = chance_dupla['options'][1]['id']                              
-                                                                               
+                            if is_red_card and fixture_id not in message_sent_fixture_id:
+                                try:
+                                    await self.telegram_bot.envia_mensagem(f"https://sports.sportingbet.com/pt-br/sports/eventos/{nome_evento}")                      
+                                    message_sent_fixture_id.append(fixture_id)
+                                except:
+                                    pass
                         except IndexError as index_error:
                             print(index_error)
                             continue
                         except Exception as e:                                    
                             print(e)
 
-                    # aqui vamos fazer a aposta
-                    with open('matches_and_options.pkl', 'wb') as fp:
-                        pickle.dump(matches_and_options, fp)        
-                    with open('fixture_id_to_betslip.pkl', 'wb') as fp:
-                        pickle.dump(fixture_id_to_betslip, fp)   
-                    self.save_array_on_disk('times_favoritos.json', self.times_favoritos)
-
             except KeyboardInterrupt as e:                
                 self.sair()
-            except Exception as e:                
-                deu_erro = True                
+            except Exception as e:                           
                 self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
-                sleep(0.5)
                 self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
                 self.numero_apostas_feitas = 0
-                self.testa_sessao()
                 print(e)                
                 self.tempo_pausa = 1                                 
 
             print('Esperando...')
             sleep(self.tempo_pausa)    
-
-    def find_next_goal_odd_and_option_id( self, option_markets, soma_gols ):        
-        market = list( filter( lambda e: e['name']['value'].lower() == '1º tempo - total de gols', option_markets ) )
-        #print(market)
-        for m in market:            
-            option = list( filter( lambda e: e['name']['value'].lower() == f'mais de {soma_gols},5', m['options'] ) )
-            for o in option:
-                return [float(o['price']['odds']), o['id']]
-        else:
-            market = list( filter( lambda e: e['name']['value'].lower() == 'total de gols', option_markets ) )
-            #print(market)
-            for m in market:                
-                option = list( filter( lambda e: e['name']['value'].lower() == f'mais de {soma_gols},5', m['options'] ) )
-                for o in option:
-                    return [float(o['price']['odds']), o['id']]
-        return None
-                                           
 
     def find_market(self, option_markets ):
         market = list( filter( lambda e: e['name']['value'].lower() == '1ª equipe a marcar', option_markets ) )
@@ -5429,13 +4607,14 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                         EC.presence_of_element_located((By.CLASS_NAME, "betslip-summary__original-odds") )) 
             cota = float( cota.get_property('innerText') )
 
-            self.cota = cota            
+            if cota < 2.8 and cota > 3.9:
+                 raise ErroCotaForaIntervalo('cota fora do intervalo')
 
-            print('odd: ', cota )
+            self.cota = cota
 
             self.valor_aposta = ( ( self.perda_acumulada + self.meta_ganho ) / ( cota - 1 ) ) + 0.01                                
             
-            self.valor_aposta = 1
+            #self.valor_aposta = 0.1            
 
             aposta_feita = await self.insere_valor(None)
             return aposta_feita   
@@ -5461,108 +4640,12 @@ APOSTA {self.qt_apostas_feitas_txt}""")
             self.tempo_pausa = 10   
             return False             
 
-    async def make_bet_2(self, nome_evento, periodo, option_id):
-        try:
-            self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
-            sleep(0.5)
-            self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
-
-            self.chrome.get(f"https://sports.sportingbet.com/pt-br/sports/eventos/{nome_evento}?market=0")
-            self.chrome.maximize_window()
-            self.chrome.fullscreen_window() 
-
-
-            if periodo in ['1º T', '1º Tempo', '1º tempo']:
-                clicou = False
-                index = 0
-                while not clicou:
-                    try:
-                        mercado_1_tempo = WebDriverWait(self.chrome, 2).until(
-                            EC.presence_of_all_elements_located((By.XPATH, "//*[normalize-space(text()) = '1º Tempo']/ancestor::a"))) 
-                        #EC.presence_of_all_elements_located  
-                        mercado_1_tempo[index].click()  
-
-                        result = WebDriverWait(self.chrome, 2).until(
-                        EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id}"]' ) ))                                         
-                        result.click() 
-
-                        clicou = True 
-                    except IndexError:
-                        print('sem mais em aberto')
-                        break                        
-                    except TimeoutException:
-                        index +=1 
-            else:
-                try:
-                    result = WebDriverWait(self.chrome, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id}"]' ) ))                                         
-                    result.click() 
-
-                    clicou = True 
-                except IndexError:
-                    print('sem mais em aberto')                    
-                except TimeoutException:
-                    index +=1 
-
-            sleep(1)    
-                                    
-            try:
-                cota2 = WebDriverWait(self.chrome, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, ".betslip-pick-odds__value") )) 
-                cota2 = float( cota2.get_property('innerText') )
-            except Exception as e:
-                print('não conseguiu pegar odd do sumário')
-                raise e
-            
-            print('cota 2 ', cota2)
-            
-            try:
-                cota = WebDriverWait(self.chrome, 10).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, f"ms-event-pick[data-test-option-id='{option_id}'] > div > div:nth-child(2)") )) 
-                cota = float( cota.get_property('innerText') )
-            except Exception as e:
-                print('não conseguiu pegar odd do ms-event-pick')
-                raise e
-
-            print('cota: ', cota)
-            
-            if cota < 3.3 or cota >= 4 or cota2 < 3.3 or cota2 >= 4:
-                raise Exception('odd fora do intervalo')
-
-            self.cota = cota
-
-            self.valor_aposta = ( ( self.perda_acumulada + self.meta_ganho ) / ( cota - 1 ) ) + 0.01                                
-            
-            if self.teste:
-                self.valor_aposta = 0.1            
-
-            aposta_feita = await self.insere_valor(None)
-            return aposta_feita
-        except Exception as e:
-            print('Algo deu errado')                     
-            print(e)
-            self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
-            sleep(0.5)
-            self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
-            self.testa_sessao()
-            try:
-                await self.telegram_bot_erro.envia_mensagem(e)
-            except:
-                pass
-            # vou colocar pra voltar pra página inicial
-            self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
-            self.chrome.maximize_window()
-            self.chrome.fullscreen_window()
-            self.numero_apostas_feitas = 0
-            self.tempo_pausa = 10   
-            return False
-
 if __name__ == '__main__':
 
     try:
         chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)
-        chrome.acessa('https://sports.sportingbet.com/pt-br/sports')                    
-        asyncio.run( chrome.gols_fim_jogo_favoritos() )
+        chrome.acessa('https://sports.sportingbet.com/pt-br/sports')               
+        asyncio.run( chrome.zebra_para_marcar_primeiro() )
     except Exception as e:
         print(e)        
         # chrome.sair()
