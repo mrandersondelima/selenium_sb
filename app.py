@@ -10,6 +10,7 @@ from time import sleep
 from dutching import calcula_dutching
 import time
 import json
+import re
 from datetime import datetime, timedelta
 from credenciais import usuario, senha, bwin_id, user_data_dir
 from telegram_bot import TelegramBot, TelegramBotErro
@@ -2693,6 +2694,17 @@ class ChromeAuto():
                 print(e)
                 self.testa_sessao()
 
+    def is_fixture_over(self, fixture_id):
+        while True:
+            try:
+                jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/cds-api/bettingoffer/fixture-view?x-bwin-accessid=MjcxNjZlZTktOGZkNS00NWJjLTkzYzgtODNkNThkNzZhZDg2&lang=pt-br&country=BR&userCountry=BR&offerMapping=All&scoreboardMode=Full&fixtureIds={fixture_id}"); return await d.json();')
+
+                if jogo_aberto.get('fixture') == None:
+                    return True
+                else:
+                    return False
+            except Exception as e:
+                self.testa_sessao()
 
     def partida_ja_era(self):
         if self.id_partida_atual == '' or not self.id_partida_atual:
@@ -4049,6 +4061,8 @@ class ChromeAuto():
                             periodo = fixture['scoreboard']['period']                                  
 
                             nome_evento = self.formata_nome_evento( fixture['participants'][0]['name']['value'], fixture['participants'][1]['name']['value'], fixture['id'] )
+                            print( fixture['participants'][0]['name']['value'], fixture['participants'][0]['participantId'] )
+                            print( fixture['participants'][1]['name']['value'], fixture['participants'][1]['participantId'] )
 
                             home_team = list( filter( lambda el: el['properties']['type'] == 'HomeTeam' , fixture['participants']))
                             home_team_name = home_team[0]['name']['value']    
@@ -4889,13 +4903,27 @@ APOSTA {self.qt_apostas_feitas_txt}""")
         self.odd_inferior = 1.75
         self.teste = False
         self.odd_superior = 2.25
-        self.tolerancia_perdas = 10
+        self.tolerancia_perdas = 9
         self.meta_progressiva = False
         self.gastos = self.le_de_arquivo('gastos.txt', 'float')
         self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
         self.market_name = None
         self.horario_ultima_checagem = datetime.now()
         self.bets_made = dict()
+        # chelsea, city, arsenal, liverpool, manchester united, tottenham
+        # real madrid, barcelona, atletico de madrid, 
+        # boca juniors, river plate
+        # milan, internazionale, juventus, roma, napoli 
+        # palmeiras, flamengo
+        # borussia dortmund, baryern de munique, bayer leverkusen, rb leipzig
+        # psg, monaco
+        # sporting, benfica, porto
+        # psv, feyenoord, ajax, az alkmaar
+        favorite_teams = [233686, 233499, 212594, 233665, 212591, 223259, 212592, 207397, 207414, 212598, 212604, 212605, 212600, 
+                          212603, 234247, 233407, 206072, 206067, 233408, 212596, 233841, 233847, 211828,
+                          233402, 212602,234157, 233406, 234114,233405, 234116,211819 ]
+        favorite_competitions = [102838, 102723, 102827, 102696]
+        is_any_odd_close = False
         try:
             self.times_favoritos = self.read_array_from_disk('times_favoritos.json')
         except Exception as e:
@@ -4960,6 +4988,9 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                     self.inserted_fixture_ids.clear()
                     if bet['state'] == 'Open' and not self.is_bet_lost:
                         self.inserted_fixture_ids.append(bet['bets'][0]['fixture']['compoundId'])
+
+                        if self.is_fixture_over(bet['bets'][0]['fixture']['compoundId']):
+                            self.inserted_fixture_ids.clear()
 
                     if bet['state'] != 'Open' and not self.ja_conferiu_resultado:
                         self.ja_conferiu_resultado = True
@@ -5049,15 +5080,16 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                                 self.meta_ganho = self.saldo * 0.01467
                                 self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                           
                                                             
-                            self.perda_acumulada = 0.0
-                            self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
+                            if self.qt_apostas_feitas_txt == 1:
+                                self.perda_acumulada = 0.0
+                                self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
 
                             self.qt_apostas_feitas_txt = 0
                             self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')    
                         
-                        if self.qt_apostas_feitas_txt % self.tolerancia_perdas == 0:
-                            self.perda_acumulada = 0.0  
-                            self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')                              
+                        # if self.qt_apostas_feitas_txt % self.tolerancia_perdas == 0:
+                        #     self.perda_acumulada = 0.0  
+                        #     self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')                              
 
                 if len( fixtures['fixtures'] ) == 0:
                     print('Sem jogos ao vivo...')
@@ -5072,15 +5104,19 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                     for fixture in fixtures['fixtures']:                            
                         try:
                             fixture_id = fixture['id']
+                            nome_evento = self.formata_nome_evento( fixture['participants'][0]['name']['value'], fixture['participants'][1]['name']['value'], fixture['id'] )                         
+
+                            result = re.findall(r"sub-*\d+|reserv.*|femin.*|u-*\d+|women", fixture['participants'][0]['name']['value'].lower())
+                            result2 = re.findall(r"sub-*\d+|reserv.*|femin.*|u-*\d+|women", fixture['participants'][1]['name']['value'].lower())
                             
+                            if len( result ) > 0 or len( result2 ) > 0:
+                                continue                            
 
                             gols_casa = int( fixture['scoreboard']['score'].split(':')[0])
                             gols_fora = int( fixture['scoreboard']['score'].split(':')[1])
                             soma_gols = gols_casa + gols_fora
-                            periodo = fixture['scoreboard']['period']                                  
-
-                            nome_evento = self.formata_nome_evento( fixture['participants'][0]['name']['value'], fixture['participants'][1]['name']['value'], fixture['id'] )
-
+                            periodo = fixture['scoreboard']['period']                                
+                            
                             home_team = list( filter( lambda el: el['properties']['type'] == 'HomeTeam' , fixture['participants']))
                             home_team_name = home_team[0]['name']['value']    
                             away_team = list( filter( lambda el: el['properties']['type'] == 'AwayTeam' , fixture['participants']))
@@ -5134,13 +5170,15 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                                 continue                                
 
                             if fixture_id in self.times_favoritos:
-                                print(nome_evento)                                                            
+                                if next_goal_odd >= 1.8 and next_goal_odd < 2 and len( self.inserted_fixture_ids ) == 0:
+                                    self.tempo_pausa = 60          
+                                print(nome_evento)                                                
                                 print('odd do mercado: ', next_goal_odd )
 
                             if ( fixture_id in self.times_favoritos and len( self.inserted_fixture_ids ) == 0 ) or ( fixture_id in self.times_favoritos and self.varios_jogos):
                                
                                 aposta_feita = False
-                                if next_goal_odd >= 3.3 and next_goal_odd < 4 and self.bets_made.get(fixture_id+periodo) == None:                                    
+                                if next_goal_odd >= 2 and next_goal_odd < 2.5 and self.bets_made.get(fixture_id+periodo) == None:                                    
                                     aposta_feita = await self.make_bet_2( nome_evento, periodo, next_goal_option_id )                                                                        
 
                                 if aposta_feita:            
@@ -5526,12 +5564,15 @@ APOSTA {self.qt_apostas_feitas_txt}""")
 
             print('cota: ', cota)
             
-            if cota < 3.3 or cota >= 4 or cota2 < 3.3 or cota2 >= 4:
+            if cota < 2 or cota > 2.5 or cota2 < 2 or cota2 > 2.5:
                 raise Exception('odd fora do intervalo')
 
             self.cota = cota
 
-            self.valor_aposta = ( ( self.perda_acumulada + self.meta_ganho ) / ( cota - 1 ) ) + 0.01                                
+            self.valor_aposta = ( ( self.perda_acumulada + self.meta_ganho ) / ( cota - 1 ) ) + 0.01      
+
+            if self.qt_apostas_feitas_txt != 0:
+                self.valor_aposta = 0.1                          
             
             if self.teste:
                 self.valor_aposta = 0.1            

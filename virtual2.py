@@ -95,7 +95,7 @@ class ChromeAuto():
         options.add_argument("--log-level=3") 
         options.add_argument("--no-sandbox")
         options.add_argument("--silent")
-        options.add_argument("user-data-dir=C:\\Users\\anderson.morais\\AppData\\Local\\Google\\Chrome\\bet_data\\")
+        options.add_argument("user-data-dir=C:\\Users\\anderson.morais\\AppData\\Local\\Google\\Chrome\\virtual_bet_data\\")
         options.page_load_strategy = 'eager'            
         return webdriver.Chrome( service=ChromeService(executable_path=driver_path), options=options) 
 
@@ -245,7 +245,7 @@ class ChromeAuto():
                 if bet['state'] != 'Open':
                     if bet['state'] == 'Won':
                         self.saldo += float( bet['payout']['value'] )
-                        self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+                        self.escreve_em_arquivo('v_saldo.txt', f'{self.saldo:.2f}', 'w')
                         return True
                     else:
                         return False  
@@ -255,7 +255,7 @@ class ChromeAuto():
                 if horario == None:
                     if bet['state'] == 'Won':
                         self.saldo += float( bet['payout']['value'] )
-                        self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+                        self.escreve_em_arquivo('v_saldo.txt', f'{self.saldo:.2f}', 'w')
                         return True
                     else:
                         return False    
@@ -394,20 +394,20 @@ class ChromeAuto():
                 valor_ganho = float( jogo_encerrado['payout']['value'] )          
 
                 self.saldo += valor_ganho
-                self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+                self.escreve_em_arquivo('v_saldo.txt', f'{self.saldo:.2f}', 'w')
                 print(f'saldo depois do resultado {self.saldo:.2f}' )                    
 
                 self.meta_ganho = self.saldo * porcentagem if porcentagem != None else self.meta_ganho
-                self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
+                self.escreve_em_arquivo('v_meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')   
                 if valor_ganho > self.perda_acumulada:                                        
                     self.perda_acumulada = 0.0
                     await self.telegram_bot_erro.envia_mensagem(f'ganhou!\nsaldo: {self.saldo:.2f}')
                 else:
                     self.perda_acumulada -= valor_ganho             
-                self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')   
+                self.escreve_em_arquivo('v_perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')   
 
                 self.qt_apostas_feitas = 0
-                self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')     
+                self.escreve_em_arquivo('v_qt_apostas_feitas.txt', '0', 'w')     
                 self.numero_unders_seguidos = 1
                 self.numero_overs_seguidos = 0                     
             else:
@@ -641,30 +641,6 @@ class ChromeAuto():
 
                 count = 0
 
-                jogos_abertos = await self.get(self.graphic_chrome, f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-
-                while jogos_abertos['summary']['openBetsCount'] == 0 and count < 5:                    
-                    try:
-                        botao_aposta = WebDriverWait(self.graphic_chrome, 10).until(
-                                EC.element_to_be_clickable((By.CLASS_NAME, 'betslip-place-button' ) )) 
-                        botao_aposta.click()    
-                        clicou = True 
-                    except:
-                        count += 1
-                        print('erro ao clicar no botão de aposta')
-                        try:
-                            await self.telegram_bot_erro.envia_mensagem('erro ao clicar no botão de aposta')
-                        except:
-                            pass
-                    finally:
-                        jogos_abertos = await self.get(self.graphic_chrome, f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                        sleep(2)
-
-                if count == 5:
-                    await self.testa_sessao()
-                    self.aposta_com_erro = True
-                    return False
-
                 clicou = False
                 count = 0
                 while not clicou and count < 5:
@@ -868,7 +844,7 @@ class ChromeAuto():
 
                     self.fecha_banners()                                
 
-                    self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')   
+                    self.perda_acumulada = self.le_de_arquivo('v_perda_acumulada.txt', 'float')   
 
                     clicou = self.clica_horario_jogo(f"//*[normalize-space(text()) = '{self.hora_jogo}']")                  
 
@@ -960,21 +936,21 @@ class ChromeAuto():
                 if aposta_realizada:                           
                     jogo_aberto = await self.get(self.graphic_chrome, f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
                     self.bet_slip_number = jogo_aberto['betslips'][0]['betSlipNumber']                            
-                    self.escreve_em_arquivo('bet_slip_number.txt', f'{self.bet_slip_number}', 'w')
+                    self.escreve_em_arquivo('v_bet_slip_number.txt', f'{self.bet_slip_number}', 'w')
                     self.perda_acumulada += self.valor_aposta      
-                    self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+                    self.escreve_em_arquivo('v_perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
                     self.saldo -= self.valor_aposta    
-                    self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                    
-                    self.qt_apostas_feitas_virtual = self.le_de_arquivo('qt_apostas_feitas_virtual.txt', 'int')
-                    self.qt_apostas_feitas_virtual += 1
+                    self.escreve_em_arquivo('v_saldo.txt', f'{self.saldo:.2f}', 'w')                    
+                    self.qt_apostas_feitas_txt = self.le_de_arquivo('v_qt_apostas_feitas_txt.txt', 'int')
+                    self.qt_apostas_feitas_txt += 1
 
-                    if self.qt_apostas_feitas_virtual % 5 == 0:
+                    if self.qt_apostas_feitas_txt % 5 == 0:
                         try:
-                            await self.telegram_bot.envia_mensagem(f'aposta {self.qt_apostas_feitas_virtual} realizada')
+                            await self.telegram_bot.envia_mensagem(f'aposta {self.qt_apostas_feitas_txt} realizada')
                         except:
                             print('erro ao enviar mensagem')
 
-                    self.escreve_em_arquivo('qt_apostas_feitas_virtual.txt', f'{self.qt_apostas_feitas_virtual}', 'w')
+                    self.escreve_em_arquivo('v_qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')
 
                     self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
 
@@ -987,34 +963,38 @@ class ChromeAuto():
                     #     print('não conseguiu enviar mensagem')                        
 
                     ganhou_aposta = await self.espera_resultado()     
-                    self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')               
+                    self.escreve_em_arquivo('v_bet_being_made.txt', 'False', 'w')               
                     self.bet_being_made = False
                     if ganhou_aposta:      
                         print('ganhou')
                         self.perda_acumulada = 0.0
-                        self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
+                        self.escreve_em_arquivo('v_perda_acumulada.txt', '0.0', 'w')
                         try:
-                            await self.telegram_bot_erro.envia_mensagem(f"ganhou depois de {self.qt_apostas_feitas_virtual} apostas\nsaldo: {self.saldo:.2f}\n{self.url.split('/')[-1]}")
+                            await self.telegram_bot_erro.envia_mensagem(f"ganhou depois de {self.qt_apostas_feitas_txt} apostas\nsaldo: {self.saldo:.2f}\n{self.url.split('/')[-1]}")
                         except:
                             traceback.print_exc()
-                        self.escreve_em_arquivo('qt_apostas_feitas_virtual.txt', '0', 'w')
-                        self.qt_apostas_feitas_virtual = 0
+                        self.escreve_em_arquivo('v_qt_apostas_feitas_txt.txt', '0', 'w')
+                        self.qt_apostas_feitas_txt = 0
                         
                         if self.meta_progressiva:
                             self.meta_ganho = 0.001 * self.saldo
-                            self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')
+                            self.escreve_em_arquivo('v_meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')
                         
                         self.qt_sem_dois_gols = 0
                         self.graphic_chrome.quit()
                         return
                     else:
+                        if self.qt_apostas_feitas_txt % 9 == 0:
+                            self.perda_acumulada = 0.0
+                            self.escreve_em_arquivo('v_perda_acumulada.txt', '0', 'w')
+
                         self.graphic_chrome.quit()
                         print('perdeu')   
                         return
 
                 else:
                     self.bet_being_made = False
-                    self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
+                    self.escreve_em_arquivo('v_bet_being_made.txt', 'False', 'w')
                     self.graphic_chrome.quit()
                     print('ocorreu um erro ao fazer aposta')
                     raise Exception('erro ao fazer aposta')      
@@ -1034,7 +1014,7 @@ class ChromeAuto():
                 print('Não conseguiu limpar os jogos...')
                 traceback.print_exc()
             await self.testa_sessao()
-            self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
+            self.escreve_em_arquivo('v_bet_being_made.txt', 'False', 'w')
             self.aposta_com_erro = True
             self.is_for_real = False
             self.qt_overs = 0
@@ -1042,21 +1022,21 @@ class ChromeAuto():
             self.numero_overs_seguidos = 0    
             self.qt_apostas_feitas[self.game_index] = 0
             self.save_array_on_disk('qt_apostas_feitas.json', self.qt_apostas_feitas)
-            self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
+            self.escreve_em_arquivo('v_bet_being_made.txt', 'False', 'w')
             return
                            
     async def padroes(self):
         print('under over under')
         self.qt_apostas_feitas = self.read_array_from_disk('qt_apostas_feitas.json')
-        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
-        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')   
+        self.perda_acumulada = self.le_de_arquivo('v_perda_acumulada.txt', 'float')
+        self.meta_ganho = self.le_de_arquivo('v_meta_ganho.txt', 'float')   
         await self.le_saldo()
-        self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                  
+        self.escreve_em_arquivo('v_saldo.txt', f'{self.saldo:.2f}', 'w')                  
         
         url_champions_cup = self.game_url
         if self.saldo == 0.0:
             self.le_saldo()
-            self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+            self.escreve_em_arquivo('v_saldo.txt', f'{self.saldo:.2f}', 'w')
 
         #self.chrome.get(url_champions_cup)
         #self.chrome.maximize_window()
@@ -1068,7 +1048,7 @@ class ChromeAuto():
             if ganhou_aposta:                    
                 self.qt_apostas_feitas[self.game_index] = 0
                 self.save_array_on_disk('qt_apostas_feitas.json', self.qt_apostas_feitas)
-                self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
+                self.escreve_em_arquivo('v_perda_acumulada.txt', '0.0', 'w')
                 try:
                     await self.telegram_bot_erro.envia_mensagem(f"ganhou depois de {self.qt_apostas_feitas[self.game_index]} {self.url.split('/')[-1]}")
                 except:
@@ -1171,9 +1151,9 @@ class ChromeAuto():
                     print(f'sequência de jogos sem dois gols: {qt_sem_dois_gols}')
 
                     if qt_sem_dois_gols >= 17: 
-                        self.bet_being_made = self.le_de_arquivo('bet_being_made.txt', 'boolean')
+                        self.bet_being_made = self.le_de_arquivo('v_bet_being_made.txt', 'boolean')
                         if not self.bet_being_made:
-                            self.escreve_em_arquivo('bet_being_made.txt', 'True', 'w')
+                            self.escreve_em_arquivo('v_bet_being_made.txt', 'True', 'w')
                             break     
 
                 # await self.le_saldo()          
@@ -1235,7 +1215,7 @@ class ChromeAuto():
                     odds_dutching = [0,0,0]
                     valores_apostas = [0.0, 0.0, 0.0]
 
-                    self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
+                    self.perda_acumulada = self.le_de_arquivo('v_perda_acumulada.txt', 'float')
 
                     for j in range(1):
                         horario_jogo = None
@@ -1398,9 +1378,9 @@ class ChromeAuto():
 
                     if jogo_encerrado['betslips'][0]['state'] == 'Won':
                         self.qt_apostas_feitas = 0
-                        self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')
+                        self.escreve_em_arquivo('v_qt_apostas_feitas.txt', '0', 'w')
                         self.perda_acumulada = 0.0
-                        self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
+                        self.escreve_em_arquivo('v_perda_acumulada.txt', '0.0', 'w')
 
                     self.valor_aposta = ( ( self.meta_ganho + self.perda_acumulada ) / ( cota - 1.0 ) ) + 0.01
 
@@ -1410,7 +1390,7 @@ class ChromeAuto():
                     if self.valor_aposta > self.saldo:
                         self.valor_aposta = 0.1
                         self.perda_acumulada = 0.0
-                        self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada}', 'w')                  
+                        self.escreve_em_arquivo('v_perda_acumulada.txt', f'{self.perda_acumulada}', 'w')                  
 
                     aposta_realizada = await self.insere_valor_dutching(None)
     
@@ -1419,7 +1399,7 @@ class ChromeAuto():
                             jogo_aberto = await self.get(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
                             self.bet_id = jogo_aberto['betslips'][0]['betSlipNumber']                            
                             self.perda_acumulada += self.valor_aposta                 
-                            self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+                            self.escreve_em_arquivo('v_perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
 
                             self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")
                             self.horario_ultima_checagem = datetime.now()
@@ -1438,14 +1418,14 @@ class ChromeAuto():
                             ganhou_aposta = await self.espera_resultado_over_under(0.00466, index_range)
                             if ganhou_aposta:      
                                 print('ganhou')
-                                self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
+                                self.escreve_em_arquivo('v_perda_acumulada.txt', '0.0', 'w')
                                 try:
                                     await self.telegram_bot_erro.envia_mensagem(f'ganhou depois de {self.qt_apostas_feitas[self.game_index]} apostas')
                                 except:
                                     traceback.print_exc()
                                 self.qt_apostas_feitas[self.game_index] = 0
                                 self.save_array_on_disk('qt_apostas_feitas.json', self.qt_apostas_feitas)
-                                self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
+                                self.escreve_em_arquivo('v_bet_being_made.txt', 'False', 'w')
                                 qt_sem_dois_gols = 0
                                 break
                             else:
@@ -1469,7 +1449,7 @@ class ChromeAuto():
                     print('Não conseguiu limpar os jogos...')
                     traceback.print_exc()
                 await self.testa_sessao()
-                self.escreve_em_arquivo('bet_being_made.txt', 'False', 'w')
+                self.escreve_em_arquivo('v_bet_being_made.txt', 'False', 'w')
                 self.aposta_com_erro = True
                 self.is_for_real = False
                 self.numero_unders_seguidos = 0
@@ -1479,25 +1459,25 @@ class ChromeAuto():
                        
     async def dois_overs_depois_dois_overs(self):
         print('under over under')
-        self.qt_apostas_feitas = self.le_de_arquivo('qt_apostas_feitas.txt', 'int')
-        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
-        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')   
-        self.is_for_real = self.le_de_arquivo('is_for_real.txt', 'boolean')
-        self.numero_overs_seguidos = self.le_de_arquivo('numero_overs_seguidos.txt', 'int')
-        self.numero_unders_seguidos = self.le_de_arquivo('numero_unders_seguidos.txt', 'int')
-        self.mercado = self.le_de_arquivo('mercado.txt', 'string')
-        self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
-        self.qt_real_bets = self.le_de_arquivo('qt_real_bets.txt', 'int')
+        self.qt_apostas_feitas = self.le_de_arquivo('v_qt_apostas_feitas.txt', 'int')
+        self.perda_acumulada = self.le_de_arquivo('v_perda_acumulada.txt', 'float')
+        self.meta_ganho = self.le_de_arquivo('v_meta_ganho.txt', 'float')   
+        self.is_for_real = self.le_de_arquivo('v_is_for_real.txt', 'boolean')
+        self.numero_overs_seguidos = self.le_de_arquivo('v_numero_overs_seguidos.txt', 'int')
+        self.numero_unders_seguidos = self.le_de_arquivo('v_numero_unders_seguidos.txt', 'int')
+        self.mercado = self.le_de_arquivo('v_mercado.txt', 'string')
+        self.maior_saldo = self.le_de_arquivo('v_maior_saldo.txt', 'float')
+        self.qt_real_bets = self.le_de_arquivo('v_qt_real_bets.txt', 'int')
         await self.le_saldo()
-        self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                  
+        self.escreve_em_arquivo('v_saldo.txt', f'{self.saldo:.2f}', 'w')                  
         
         url_champions_cup = self.game_url
         if self.saldo == 0.0:
             self.le_saldo()
-            self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+            self.escreve_em_arquivo('v_saldo.txt', f'{self.saldo:.2f}', 'w')
             if self.maior_saldo < self.saldo:
                 self.maior_saldo = self.saldo
-                self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w')
+                self.escreve_em_arquivo('v_maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w')
 
         self.chrome.get(url_champions_cup)
         self.chrome.maximize_window()
@@ -1511,10 +1491,10 @@ class ChromeAuto():
         while True:           
             
             try:
-                self.escreve_em_arquivo('is_for_real.txt', f'{self.is_for_real}', 'w')
-                self.escreve_em_arquivo('numero_overs_seguidos.txt', f'{self.numero_overs_seguidos}', 'w')
-                self.escreve_em_arquivo('numero_unders_seguidos.txt', f'{self.numero_unders_seguidos}', 'w')
-                self.escreve_em_arquivo('mercado.txt', f'{self.mercado}', 'w')
+                self.escreve_em_arquivo('v_is_for_real.txt', f'{self.is_for_real}', 'w')
+                self.escreve_em_arquivo('v_numero_overs_seguidos.txt', f'{self.numero_overs_seguidos}', 'w')
+                self.escreve_em_arquivo('v_numero_unders_seguidos.txt', f'{self.numero_unders_seguidos}', 'w')
+                self.escreve_em_arquivo('v_mercado.txt', f'{self.mercado}', 'w')
 
                 print(f'numero overs: {self.numero_overs_seguidos}\nnumero unders: {self.numero_unders_seguidos}')
                 print(f'is_for_real: {self.is_for_real}\nmercado: {self.mercado}')
@@ -2011,20 +1991,20 @@ class ChromeAuto():
 
                 if jogo_encerrado['betslips'][0]['state'] == 'Won':
                     self.qt_apostas_feitas = 0
-                    self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')
+                    self.escreve_em_arquivo('v_qt_apostas_feitas.txt', '0', 'w')
 
                 if self.qt_apostas_feitas > 0:
                     self.valor_aposta = 0.1
                 else:
                     self.qt_real_bets += 1
-                    self.escreve_em_arquivo('qt_real_bets.txt', f'{self.qt_real_bets}', 'w')
+                    self.escreve_em_arquivo('v_qt_real_bets.txt', f'{self.qt_real_bets}', 'w')
                     if self.qt_real_bets > 1 and self.qt_real_bets <= 4 :
                         self.valor_aposta = 0.1
 
                 if self.valor_aposta > self.saldo:
                     self.valor_aposta = 0.1
                     self.perda_acumulada = 0.0
-                    self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada}', 'w')
+                    self.escreve_em_arquivo('v_perda_acumulada.txt', f'{self.perda_acumulada}', 'w')
 
                 self.valor_aposta = 0.1
                 aposta_realizda = await self.insere_valor_dutching(None)
@@ -2042,13 +2022,13 @@ class ChromeAuto():
                 self.primeiro_alerta_sem_jogos_elegiveis = True                    
 
                 self.saldo_antes_aposta = self.saldo
-                self.escreve_em_arquivo('saldo_antes_aposta.txt', f'{self.saldo_antes_aposta:.2f}', 'w')
+                self.escreve_em_arquivo('v_saldo_antes_aposta.txt', f'{self.saldo_antes_aposta:.2f}', 'w')
                 self.numero_apostas_feitas = 0
 
 
                 ganhou_aposta = await self.espera_resultado_over_under(0.00466)
                 if ganhou_aposta:
-                    self.escreve_em_arquivo('qt_apostas_feitas.txt', '0', 'w')
+                    self.escreve_em_arquivo('v_qt_apostas_feitas.txt', '0', 'w')
                     try:
                         await self.telegram_bot_erro.envia_mensagem(f'ganhou {tipo_aposta}')
                     except:
@@ -2099,12 +2079,12 @@ class ChromeAuto():
 
     async def analisa(self):
 
-        self.qt_apostas_feitas = self.read_array_from_disk('qt_apostas_feitas.json')
-        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
-        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')       
-        self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')  
-        self.qt_apostas_feitas_virtual = self.le_de_arquivo('qt_apostas_feitas_virtual.txt', 'int')  
-        self.meta_progressiva = True
+        self.qt_apostas_feitas = self.read_array_from_disk('v_qt_apostas_feitas.json')
+        self.perda_acumulada = self.le_de_arquivo('v_perda_acumulada.txt', 'float')
+        self.meta_ganho = self.le_de_arquivo('v_meta_ganho.txt', 'float')       
+        self.bet_slip_number = self.le_de_arquivo('v_bet_slip_number.txt', 'string')  
+        self.qt_apostas_feitas_txt = self.le_de_arquivo('v_qt_apostas_feitas_txt.txt', 'int')  
+        self.meta_progressiva = False
         self.modo_teste = False
         self.saldo = None
 
@@ -2171,10 +2151,10 @@ class ChromeAuto():
                             self.qt_overs = 0
 
                     if self.qt_overs == 2:                         
-                        self.bet_being_made = self.le_de_arquivo('bet_being_made.txt', 'boolean')
+                        self.bet_being_made = self.le_de_arquivo('v_bet_being_made.txt', 'boolean')
                         if not self.bet_being_made:                           
                             self.hora_jogo = horario_jogo
-                            self.escreve_em_arquivo('bet_being_made.txt', 'True', 'w')
+                            self.escreve_em_arquivo('v_bet_being_made.txt', 'True', 'w')
                             # aqui vou ter que abrir outra instância do webdriver, dessa vez sem o headless
                             # precisamos armazenar o valor do horário do próximo jogo para ter certeza de que o algoritmo não vai pular nenhum
                             self.hora_jogo = await self.proximo_horario(self.hora_jogo)
@@ -2186,9 +2166,9 @@ class ChromeAuto():
                             self.graphic_chrome.fullscreen_window()
 
                             if not await self.is_logged_in():
-                                self.faz_login()
+                                self.faz_login()                           
 
-                            self.saldo = self.le_de_arquivo('saldo.txt', 'float')
+                            self.saldo = self.le_de_arquivo('v_saldo.txt', 'float')
 
                             await self.make_bets()
               
