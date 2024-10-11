@@ -2087,6 +2087,7 @@ class ChromeAuto():
         self.meta_progressiva = False
         self.modo_teste = False
         self.saldo = None
+        self.is_after_a_green = False
 
         telegram = TelegramBotErro()
         self.qt_overs = 0

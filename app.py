@@ -7,9 +7,11 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 from time import sleep
+import psycopg2
 from dutching import calcula_dutching
 import time
 import json
+from enum import Enum
 import re
 from datetime import datetime, timedelta
 from credenciais import usuario, senha, bwin_id, user_data_dir
@@ -20,6 +22,10 @@ import asyncio
 from match_of_interest import MatchOfInterest, HomeAway
 import pickle
 from math import floor
+
+class Period(Enum):
+    FIRST_HALF = 1
+    SECOND_HALF = 2
 
 # & C:/Python39/python.exe c:/Users/anderson.morais/Documents/dev/sportingbet3/app.py 2 5 4 50 1 20 1 2
 class ChromeAuto():
@@ -88,6 +94,20 @@ class ChromeAuto():
         self.target_odd = 0.0
         return
 
+    def save_stats(self, match_and_options, fixture_id):
+        try:
+            conn = self.get_bd_connection()             
+            cur = conn.cursor()        
+            market_name = match_and_options['market_name']
+            odd_before_score = match_and_options['odd_before_score']
+
+            cur.execute(f"insert into first_score_stats values ('{market_name}', {odd_before_score:.1f}, '{fixture_id}')")
+
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(e)
+
     def acessa(self, site):         
         carregou_site = False
         while not carregou_site:
@@ -110,7 +130,7 @@ class ChromeAuto():
                 # definimos quanto um script vai esperar pela resposta
                 self.chrome.get(site)
                 self.chrome.maximize_window()
-                self.chrome.fullscreen_window()                
+                #self.chrome.fullscreen_window()                
 
                 carregou_site = True
             except Exception as e:
@@ -259,7 +279,7 @@ class ChromeAuto():
                     url_acesso = 'https://sports.sportingbet.com/pt-br/sports'
                 self.chrome.get(url_acesso)
                 self.chrome.maximize_window()
-                self.chrome.fullscreen_window()
+                #self.chrome.fullscreen_window()
                 print(e)
                 if tentativas == 5:
                     self.telegram_bot.envia_mensagem('SISTEMA TRAVADO NO LOGIN')
@@ -411,9 +431,6 @@ class ChromeAuto():
 
             if self.valor_aposta < 0.1:
                 self.valor_aposta = 0.1
-
-            if self.teste:
-                self.valor_aposta = 0.1
     
 
             input_valor = WebDriverWait(self.chrome, 20).until(
@@ -484,6 +501,7 @@ class ChromeAuto():
         except Exception as e:
             print(e)
             self.testa_sessao()
+            self.tempo_pausa = 10
             #self.telegram_bot_erro.envia_mensagem('OCORREU UM ERRO AO TENTAR INSERIR VALOR DA APOSTA.')
             try:
                 self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
@@ -593,7 +611,7 @@ class ChromeAuto():
             try:
                 self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
                 self.chrome.maximize_window()
-                self.chrome.fullscreen_window()
+                #self.chrome.fullscreen_window()
             except Exception as e:
                 print(e)
             finally:
@@ -921,7 +939,7 @@ class ChromeAuto():
                                     try: 
                                         self.chrome.get( 'https://sports.sportingbet.com/pt-br/sports/eventos/' + jogo_apto['nome_evento'] + '?market=5')
                                         self.chrome.maximize_window()
-                                        self.chrome.fullscreen_window()
+                                        #self.chrome.fullscreen_window()
                                         
                                     except Exception as e:
                                         print('erro ao navegar pro jogo')
@@ -948,7 +966,7 @@ class ChromeAuto():
                                     # vou colocar pra voltar pra página inicial
                                     self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
                                     self.chrome.maximize_window()
-                                    self.chrome.fullscreen_window()
+                                    #self.chrome.fullscreen_window()
                                     self.numero_apostas_feitas = 0
 
                                     if self.numero_erros_global >= 10:
@@ -1069,38 +1087,80 @@ class ChromeAuto():
             except Exception as e:
                 print(e)                
 
-    async def busca_odds_fim_jogo_sem_gol(self, mercado, limite_inferior, limite_superior, valor_aposta, teste, varios_jogos, meta_diaria ):
+    async def busca_odds_fim_jogo_sem_gol(self):
 
-        self.tempo_pausa = 2 * 60
-        jogos_aptos = []
-        self.horario_ultima_checagem = datetime.now()
-        self.times_favoritos = []
-        times_ja_enviados = []
-        self.times_pra_apostar = []
-        self.varios_jogos = varios_jogos
-        self.teste = teste
-        saldo_inicial = 644.29
-        self.le_saldo()      
-        self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int' )        
-        self.id_partida_atual = self.le_de_arquivo('id_partida_atual.txt', 'string')        
-        self.perdeu_ultimo_jogo = self.le_de_arquivo('perdeu_ultimo_jogo.txt', 'boolean')        
-        self.jogos_inseridos = self.read_set_from_disk('jogos_inseridos.txt')        
-        self.jogo_apostado_em_empate = self.le_de_arquivo('jogo_apostado_em_empate.txt', 'boolean')        
-        self.aposta_ja_era = self.le_de_arquivo('aposta_ja_era.txt', 'boolean')
-        self.segunda_aposta_jogo = self.le_de_arquivo('segunda_aposta_jogo.txt', 'boolean')
-        self.next_option_name = self.le_de_arquivo('next_option_name.txt', 'string')        
-        self.next_option_id = self.le_de_arquivo('next_option_id.txt', 'string')
-        self.aposta_mesmo_jogo = self.le_de_arquivo('aposta_mesmo_jogo.txt', 'boolean')
-        self.qt_apostas_mesmo_jogo = self.le_de_arquivo('qt_apostas_mesmo_jogo.txt', 'int')
-        self.mercados_restantes = self.read_array_from_disk('mercados_restantes.json')
+
+        if not await self.is_logged_in():
+            self.faz_login()        
+
+        self.tempo_pausa = 2 * 60                
+        self.times_favoritos = []        
+        self.first_message_after_bet = False
+        self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
+        self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
+        self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
+        self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
         self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
-        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
-        self.valor_aposta = self.meta_ganho
-        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
-        self.controle_acima_abaixo = self.le_de_arquivo('controle_acima_abaixo.txt', 'int')
+        self.varios_jogos = False        
+        self.fator_multiplicador = 0.001
+        self.teste = False
+        self.limite_inferior = 2.8
+        self.only_favorites = False
+        self.limite_superior = 5
+        self.tolerancia_perdas = 4
+        self.meta_progressiva = True
+        self.only_men_professional = False
+        self.gastos = self.le_de_arquivo('gastos.txt', 'float')
+        self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
+        self.market_name = None
+        self.horario_ultima_checagem = datetime.now()
+        self.bets_made = dict()
+        # chelsea, city, arsenal, liverpool, manchester united, tottenham
+        # real madrid, barcelona, atletico de madrid, 
+        # boca juniors, river plate
+        # milan, internazionale, juventus, roma, napoli 
+        # palmeiras, flamengo
+        # borussia dortmund, baryern de munique, bayer leverkusen, rb leipzig
+        # psg, monaco
+        # sporting, benfica, porto
+        # psv, feyenoord, ajax, az alkmaar
+        favorite_teams = [233686, 233499, 212594, 233665, 212591, 223259, 212592, 207397, 207414, 212598, 212604, 212605, 212600, 
+                          212603, 234247, 233407, 206072, 206067, 233408, 212596, 233841, 233847, 211828,
+                          233402, 212602,234157, 233406, 234114,233405, 234116,211819 ]
+        favorite_competitions = [102838, 102723, 102827, 102696]
+        is_any_odd_close = False
+        try:
+            self.times_favoritos = self.read_array_from_disk('times_favoritos.json')
+        except Exception as e:
+            print(e)
+            print('erro ao ler array')            
+        message_already_sent = []
+        self.times_pra_apostar = []          
+        matches = []       
+        matches_and_options = dict()
+        try: 
+            with open('matches_and_options.pkl', 'rb') as fp:
+                matches_and_options = pickle.load(fp)
+        except:
+            print('erro ao ler arquivo')
 
-        print('valor aposta ', self.valor_aposta )
-        print('teste ', self.teste)
+        fixture_id_to_betslip = dict()
+        try:
+            with open('fixture_id_to_betslip.pkl', 'rb' ) as fp:
+                fixture_id_to_betslip = pickle.load(fp)
+        except:
+            print('erro ao ler arquivo')
+        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
+        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
+        self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int')        
+        self.le_saldo()
+
+        if self.meta_ganho == 0:
+            self.meta_ganho = self.saldo * self.fator_multiplicador
+            self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')
+
+        print('proceso do chrome ', self.chrome.service.process.pid)
+        self.escreve_em_arquivo('chrome_process_id.txt', f'{self.chrome.service.process.pid}', 'w' ) 
 
         while True:
             maior_odd = 0
@@ -1112,14 +1172,7 @@ class ChromeAuto():
             deu_erro = False
             fixtures = None
 
-            try:
-                jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-
-                self.inserted_fixture_ids = []
-                for open_event in jogo_aberto['summary']['openEvents']:
-                    self.inserted_fixture_ids.append(open_event)
-            except:
-                self.testa_sessao()  
+            self.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
 
             diferenca_tempo = datetime.now() - self.horario_ultima_checagem
             if diferenca_tempo.total_seconds() >= 3600:
@@ -1142,17 +1195,19 @@ class ChromeAuto():
                 print('Erro ao tentar fechar banner')
 
             # primeiro verificamos se não há nenhum jogo em aberto
-            try:               
-                jogos_abertos = self.chrome.execute_script("let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1', { headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' } }); return await d.json();")
+            try:     
+                if self.bet_slip_number != '':          
+                    bet = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslip?betslipId={self.bet_slip_number}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
 
                 #self.aposta_ja_era_metodo(limite_inferior, limite_superior)
+                    bet = bet['betslip']
 
-                if jogos_abertos['summary']['openBetsCount'] >= 1 and not self.varios_jogos:
+                if self.bet_slip_number != '' and bet['state'] == 'Open' and not self.varios_jogos:
                 
                     print('Há apostas em aberto...')
                     print(datetime.now())                                        
 
-                    self.tempo_pausa = 60 * 3
+                    self.tempo_pausa = 60 * 2
                     if self.saldo_antes_aposta == 0.0:
                         self.saldo_antes_aposta = self.saldo
                 else:                    
@@ -1163,11 +1218,12 @@ class ChromeAuto():
                                 print('Conferindo resultado da última aposta.')
                                 self.ja_conferiu_resultado = True
                                 self.escreve_em_arquivo('ja_conferiu_resultado.txt', 'True', 'w')    
-                                # primeiro verificamos se a última aposta foi vitoriosa                    
-                                ultimo_jogo = self.chrome.execute_script("let d = await fetch('https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=Settled', { headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' } } ); return await d.json();")
-                                
+                                # primeiro verificamos se a última aposta foi vitoriosa                                                    
+                                self.bet_slip_number = ''
+                                self.escreve_em_arquivo('bet_slip_number.txt', '', 'w')
+
                                 # só vai modificar o valor da aposta se tivermos perdido a última aposta
-                                ultimo_jogo = ultimo_jogo['betslips'][0]
+                                ultimo_jogo = bet
 
                                 early_payout = ultimo_jogo['isEarlyPayout']
 
@@ -1211,7 +1267,7 @@ class ChromeAuto():
                                         #if self.saldo > self.saldo_inicio_dia:
 
                                                 # atualiza o valor da meta de ganho uma vez que ganhou
-                                        self.meta_ganho = self.saldo * 0.003922 if not self.teste else valor_aposta #0.000325                                
+                                        self.meta_ganho = self.saldo * self.fator_multiplicador                                
                                         
                                         self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                                
                                         print('meta ganho ', self.meta_ganho)
@@ -1231,7 +1287,7 @@ class ChromeAuto():
                                     self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
  
                                     self.qt_apostas_feitas_txt = 0
-                                    self.escreve_em_arquivo('qt_apostas_feitas.txt', f'{self.qt_apostas_feitas_txt}', 'w')                                    
+                                    self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')                                    
                                     # while self.saldo <= self.saldo_antes_aposta:
                                     #     self.le_saldo()
                                     #     contador += 1
@@ -1290,6 +1346,9 @@ class ChromeAuto():
                                     periodId = fixture['scoreboard']['periodId']
                                     is_running = fixture['scoreboard']['timer']['running']
 
+                                    # if f"{fixture_id}{periodo}" in jogos_ja_inseridos:
+                                    #     continue
+
                                     resultado_partida = list( filter(  lambda el: el['name']['value'].lower() in ['resultado da partida', 'match result'] ,fixture['optionMarkets'] ) )
 
                                     resultado_partida = resultado_partida[0]
@@ -1298,9 +1357,9 @@ class ChromeAuto():
                                     odd_time_2_resultado_partida = float( resultado_partida['options'][2]['price']['odds'] )   
                                     time_2_resultado_partida_option_id = resultado_partida['options'][2]['id']                                
 
-                                    cronometro = float(fixture['scoreboard']['timer']['seconds']) / 60.0
+                                    cronometro = float(fixture['scoreboard']['timer']['seconds']) // 60
 
-                                    if periodo.lower() == 'não foi iniciado' or periodo.lower() == 'intervalo':
+                                    if periodo.lower() in ['não foi iniciado', 'intervalo', 'suspenso']:
                                         continue
                                     
                                     option_markets = fixture['optionMarkets']
@@ -1313,17 +1372,18 @@ class ChromeAuto():
                                                         odd = float(option['price']['odds'])
                                                         option_id = option['id']
                                                         print(option['name']['value'], odd, option_id )
-                                                        if odd >= 1.20 and odd <= 1.3:
-                                                            jogos_aptos.append({ 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })                                                     
+                                                        if odd >= 4:
+                                                            jogos_aptos.append({ 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })                                                                                             
                                         else:
-                                            if market_name.lower() in ['total de gols', 'total goals']:                                                
+                                            if market_name.lower() in ['total de gols', 'total goals']:
                                                 for option in option_market['options']:                                                        
                                                     if option['name']['value'] == f'Menos de {numero_gols_atual},5':
                                                         odd = float(option['price']['odds'])
                                                         option_id = option['id']
                                                         print(option['name']['value'], odd, option_id )
-                                                        if odd >= 1.20 and odd <= 1.3:
-                                                            jogos_aptos.append({ 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })                                                     
+                                                        if odd >= 4:
+                                                            jogos_aptos.append({ 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })                                                                                             
+
                                            
                                 except Exception as e:                                    
                                     print('erro')                                    
@@ -1334,7 +1394,7 @@ class ChromeAuto():
 
                             print(periodos)
 
-                            jogos_aptos_ordenado = sorted(jogos_aptos, key=lambda el: ( -el['cronometro'] ) )
+                            jogos_aptos_ordenado = sorted(jogos_aptos, key=lambda el: ( -el['odd'] ) )
                             # aqui vou fazer um laço pelos jogos aptos e tentar inseri-los na aposta combinada
 
                             # if self.aposta_mesmo_jogo:
@@ -1368,7 +1428,7 @@ class ChromeAuto():
                             for jogo_apto in jogos_aptos_ordenado:
 
                                 if self.varios_jogos:
-                                    self.valor_aposta = valor_aposta
+                                    self.valor_aposta = 0.1
 
                                 # isso pra evitar que o sistema selecione o mesmo jogo com mercados do primeiro e segundo tempo
                                 if jogo_apto['fixture_id'] in self.inserted_fixture_ids:
@@ -1381,7 +1441,7 @@ class ChromeAuto():
                                     try: 
                                         self.chrome.get( 'https://sports.sportingbet.com/pt-br/sports/eventos/' + jogo_apto['nome_evento'] + '?market=0')
                                         self.chrome.maximize_window()
-                                        self.chrome.fullscreen_window()
+                                        #self.chrome.fullscreen_window()
                                         
                                     except Exception as e:
                                         print('erro ao navegar pro jogo')
@@ -1436,9 +1496,7 @@ class ChromeAuto():
                                     cota = WebDriverWait(self.chrome, 10).until(
                                                 EC.presence_of_element_located((By.CLASS_NAME, "betslip-summary__original-odds") )) 
                                     cota = float( cota.get_property('innerText') )
-
-                                    if cota < 1.2 or cota > 1.3:
-                                        raise ErroCotaForaIntervalo('cota fora do intervalo')
+                                    
 
                                     # if self.qt_apostas_feitas > 1:
                                     #     self.perda_acumulada = 0.0             
@@ -1462,6 +1520,27 @@ class ChromeAuto():
 
                                     bet_made = await self.insere_valor(jogo_apto)   
                                     if bet_made and not self.varios_jogos:
+                                        error = True
+                                        jogo_aberto = None
+                                        jogos_ja_inseridos.append( f"{jogo_apto['fixture_id']}{jogo_apto['periodo']}" )
+                                        while error:
+                                            try:
+                                                jogo_aberto = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                                                if len( jogo_aberto['betslips'] ) > 0:
+                                                    self.bet_slip_number = jogo_aberto['betslips'][0]['betSlipNumber']
+                                                    self.escreve_em_arquivo('bet_slip_number.txt', self.bet_slip_number, 'w')
+                                                    error = False                                                
+                                            except:
+                                                self.testa_sessao()                                                
+
+                                            bet = jogo_aberto['betslips'][0]        
+                                        try:
+                                            await self.telegram_bot.envia_mensagem(f"""{bet['bets'][0]['market']['name']}: {bet['bets'][0]['option']['name']}
+{jogo_apto['cronometro']} {jogo_apto['periodo']}
+{jogo_apto['odd']}
+APOSTA {self.qt_apostas_feitas_txt}""")                             
+                                        except:
+                                            print('não foi possível enviar mensagem ao telegram.')
                                         break  
                                 except Exception as e:
                                     print('Algo deu errado')  
@@ -1476,7 +1555,7 @@ class ChromeAuto():
                                     # vou colocar pra voltar pra página inicial
                                     self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
                                     self.chrome.maximize_window()
-                                    self.chrome.fullscreen_window()
+                                    #self.chrome.fullscreen_window()
                                     self.numero_apostas_feitas = 0
 
                                     if self.numero_erros_global >= 10:
@@ -1831,7 +1910,7 @@ class ChromeAuto():
                                     try: 
                                         self.chrome.get( 'https://sports.sportingbet.com/pt-br/sports/eventos/' + jogo_1['nome_evento'] + '?market=0')
                                         self.chrome.maximize_window()
-                                        self.chrome.fullscreen_window()
+                                        #self.chrome.fullscreen_window()
                                         
                                     except Exception as e:
                                         print('erro ao navegar pro jogo')
@@ -1853,7 +1932,7 @@ class ChromeAuto():
                                     try: 
                                         self.chrome.get( 'https://sports.sportingbet.com/pt-br/sports/eventos/' + jogo_2['nome_evento'] + '?market=0')
                                         self.chrome.maximize_window()
-                                        self.chrome.fullscreen_window()
+                                        #self.chrome.fullscreen_window()
                                         
                                     except Exception as e:
                                         print('erro ao navegar pro jogo')
@@ -2218,7 +2297,7 @@ class ChromeAuto():
                                     try: 
                                         self.chrome.get( 'https://sports.sportingbet.com/pt-br/sports/eventos/' + jogo_1['nome_evento'] + '?market=0')
                                         self.chrome.maximize_window()
-                                        self.chrome.fullscreen_window()
+                                        #self.chrome.fullscreen_window()
                                         
                                     except Exception as e:
                                         print('erro ao navegar pro jogo')
@@ -2240,7 +2319,7 @@ class ChromeAuto():
                                     try: 
                                         self.chrome.get( 'https://sports.sportingbet.com/pt-br/sports/eventos/' + jogo_2['nome_evento'] + '?market=0')
                                         self.chrome.maximize_window()
-                                        self.chrome.fullscreen_window()
+                                        #self.chrome.fullscreen_window()
                                         
                                     except Exception as e:
                                         print('erro ao navegar pro jogo')
@@ -2568,7 +2647,7 @@ class ChromeAuto():
                                     try: 
                                         self.chrome.get( 'https://sports.sportingbet.com/pt-br/sports/eventos/' + jogo_apto['nome_evento'] + '?market=0')
                                         self.chrome.maximize_window()
-                                        self.chrome.fullscreen_window()
+                                        #self.chrome.fullscreen_window()
                                         
                                     except Exception as e:
                                         print('erro ao navegar pro jogo')
@@ -2621,7 +2700,7 @@ class ChromeAuto():
                                     # vou colocar pra voltar pra página inicial
                                     self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
                                     self.chrome.maximize_window()
-                                    self.chrome.fullscreen_window()
+                                    #self.chrome.fullscreen_window()
                                     self.numero_apostas_feitas = 0
 
                                     if self.numero_erros_global >= 10:
@@ -3077,7 +3156,7 @@ class ChromeAuto():
                                     try: 
                                         self.chrome.get( 'https://sports.sportingbet.com/pt-br/sports/eventos/' + jogo_apto['nome_evento'] )
                                         self.chrome.maximize_window()
-                                        self.chrome.fullscreen_window()
+                                        #self.chrome.fullscreen_window()
                                         
                                     except Exception as e:
                                         print('erro ao navegar pro jogo')
@@ -3115,7 +3194,7 @@ class ChromeAuto():
                                     # vou colocar pra voltar pra página inicial
                                     self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
                                     self.chrome.maximize_window()
-                                    self.chrome.fullscreen_window()
+                                    #self.chrome.fullscreen_window()
                                     self.numero_apostas_feitas = 0
 
                                     if self.numero_erros_global >= 10:
@@ -3584,7 +3663,7 @@ class ChromeAuto():
                                     try: 
                                         self.chrome.get( 'https://sports.sportingbet.com/pt-br/sports/eventos/' + jogo_apto['nome_evento'] + '?market=2')
                                         self.chrome.maximize_window()
-                                        self.chrome.fullscreen_window()
+                                        #self.chrome.fullscreen_window()
                                         
                                     except Exception as e:
                                         print('erro ao navegar pro jogo')
@@ -3677,7 +3756,7 @@ class ChromeAuto():
                                     # vou colocar pra voltar pra página inicial
                                     self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
                                     self.chrome.maximize_window()
-                                    self.chrome.fullscreen_window()
+                                    #self.chrome.fullscreen_window()
                                     self.numero_apostas_feitas = 0
 
                                     if self.numero_erros_global >= 10:
@@ -3731,7 +3810,7 @@ class ChromeAuto():
         try:            
             self.chrome.get( f'https://sports.sportingbet.com/pt-br/sports/eventos/{url}?market=3')
             self.chrome.maximize_window()
-            self.chrome.fullscreen_window()            
+            #self.chrome.fullscreen_window()            
 
             try:
                 self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
@@ -4899,12 +4978,15 @@ APOSTA {self.qt_apostas_feitas_txt}""")
         self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
         self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
         self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
-        self.varios_jogos = False
-        self.odd_inferior = 1.75
+        self.varios_jogos = False        
+        self.fator_multiplicador = 0.06858
         self.teste = False
-        self.odd_superior = 2.25
-        self.tolerancia_perdas = 9
-        self.meta_progressiva = False
+        self.limite_inferior = 2.8
+        self.only_favorites = False
+        self.limite_superior = 5
+        self.tolerancia_perdas = 4
+        self.meta_progressiva = True
+        self.only_men_professional = False
         self.gastos = self.le_de_arquivo('gastos.txt', 'float')
         self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
         self.market_name = None
@@ -4950,6 +5032,10 @@ APOSTA {self.qt_apostas_feitas_txt}""")
         self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int')        
         self.le_saldo()
 
+        if self.meta_ganho == 0:
+            self.meta_ganho = self.saldo * self.fator_multiplicador
+            self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')
+
         print('proceso do chrome ', self.chrome.service.process.pid)
         self.escreve_em_arquivo('chrome_process_id.txt', f'{self.chrome.service.process.pid}', 'w' )        
 
@@ -4989,8 +5075,8 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                     if bet['state'] == 'Open' and not self.is_bet_lost:
                         self.inserted_fixture_ids.append(bet['bets'][0]['fixture']['compoundId'])
 
-                        if self.is_fixture_over(bet['bets'][0]['fixture']['compoundId']):
-                            self.inserted_fixture_ids.clear()
+                        # if self.is_fixture_over(bet['bets'][0]['fixture']['compoundId']):
+                        #     self.inserted_fixture_ids.clear()
 
                     if bet['state'] != 'Open' and not self.ja_conferiu_resultado:
                         self.ja_conferiu_resultado = True
@@ -5014,6 +5100,13 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                             except Exception as e:
                                 print(e)
                                 print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')
+
+                            if not matches_and_options[fixture_id]['stats_saved_1_t']:
+                                matches_and_options[fixture_id]['market_name'] = '1º tempo - total de gols'
+                                #self.save_stats(matches_and_options[fixture_id], fixture_id)
+                                matches_and_options[fixture_id]['stats_saved_1_t'] = True
+                                print('perdeu jogo no primeiro tempo')
+                                
                         elif ultimo_jogo['state'] == 'Canceled':
 
                             print('aposta cancelada')
@@ -5055,6 +5148,12 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                             self.ganhos += valor_ganho
                             self.escreve_em_arquivo('ganhos.txt', f'{self.ganhos:.2f}', 'w')
 
+                            if not matches_and_options[fixture_id]['stats_saved_1_t']:
+                                matches_and_options[fixture_id]['market_name'] = '1º tempo - total de gols'
+                                #self.save_stats(matches_and_options[fixture_id], fixture_id )
+                                matches_and_options[fixture_id]['stats_saved_1_t'] = True
+                                print('ganhou jogo no primeiro tempo')
+
                             # if self.saldo > self.maior_saldo:
                             #     self.maior_saldo = self.saldo
                             #     self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w')
@@ -5063,9 +5162,27 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                             #         self.primeiro_alerta_depois_do_jogo = False
                             #     except:
                             #         print('erro ao enviar mensagem ao telegram')
-                            # else:
+                            # else:                         
+                                                            
+                            if self.qt_apostas_feitas_txt <= self.tolerancia_perdas:
+                                self.perda_acumulada = 0.0
+                                self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
+                            else:
+                                self.perda_acumulada -= valor_ganho
+                                self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+                            
+                            if self.meta_progressiva:                                
+                                self.meta_ganho = self.saldo * self.fator_multiplicador
+                                self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                                                           
+
+                            aumento_real = 'Recuperou.'
+                            if self.saldo > self.maior_saldo:
+                                aumento_real = 'GANHOU!'
+                                self.maior_saldo = self.saldo
+                                self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w')
+
                             try:
-                                await self.telegram_bot_erro.envia_mensagem(f"Ganhou! R$ {self.saldo:.2f}\nBalanço: R$ {self.ganhos-self.gastos:.2f}")
+                                await self.telegram_bot_erro.envia_mensagem(f"{aumento_real}\nSaldo: R$ {self.saldo:.2f}\nBalanço: R$ {self.ganhos-self.gastos:.2f}")
                                 self.primeiro_alerta_depois_do_jogo = False   
                                 #self.saldo_inicio_dia = self.saldo
                                 #self.escreve_em_arquivo('saldo_inicio_dia.txt', f'{self.saldo_inicio_dia:.2f}', 'w')
@@ -5076,20 +5193,16 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                                 print(e)
                                 print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')
 
-                            if self.meta_progressiva:
-                                self.meta_ganho = self.saldo * 0.01467
-                                self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                           
-                                                            
-                            if self.qt_apostas_feitas_txt == 1:
-                                self.perda_acumulada = 0.0
-                                self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')
-
                             self.qt_apostas_feitas_txt = 0
                             self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')    
                         
-                        # if self.qt_apostas_feitas_txt % self.tolerancia_perdas == 0:
-                        #     self.perda_acumulada = 0.0  
-                        #     self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')                              
+                        if self.qt_apostas_feitas_txt % self.tolerancia_perdas == 0:
+                            self.perda_acumulada = 0.0  
+                            self.escreve_em_arquivo('perda_acumulada.txt', '0.0', 'w')   
+
+                            if self.meta_progressiva:                                
+                                self.meta_ganho = self.saldo * self.fator_multiplicador
+                                self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w') 
 
                 if len( fixtures['fixtures'] ) == 0:
                     print('Sem jogos ao vivo...')
@@ -5105,17 +5218,47 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                         try:
                             fixture_id = fixture['id']
                             nome_evento = self.formata_nome_evento( fixture['participants'][0]['name']['value'], fixture['participants'][1]['name']['value'], fixture['id'] )                         
-
-                            result = re.findall(r"sub-*\d+|reserv.*|femin.*|u-*\d+|women", fixture['participants'][0]['name']['value'].lower())
-                            result2 = re.findall(r"sub-*\d+|reserv.*|femin.*|u-*\d+|women", fixture['participants'][1]['name']['value'].lower())
-                            
-                            if len( result ) > 0 or len( result2 ) > 0:
-                                continue                            
-
                             gols_casa = int( fixture['scoreboard']['score'].split(':')[0])
                             gols_fora = int( fixture['scoreboard']['score'].split(':')[1])
                             soma_gols = gols_casa + gols_fora
                             periodo = fixture['scoreboard']['period']                                
+                            periodId = int( fixture['scoreboard']['periodId'] )
+
+                            if periodo.lower() in ['não foi iniciado', 'suspenso' ]:                               
+                                continue
+
+                            if '2' in periodo.lower():
+                                #print('jogo no segundo tempo')
+                                continue
+
+                            if fixture_id in self.times_favoritos:        
+                                print(f"\n{nome_evento}")    
+
+                            if self.only_men_professional:
+                                result = re.findall(r"sub-*\d+|reserv.*|femin.*|u-*\d+|women", fixture['participants'][0]['name']['value'].lower())
+                                result2 = re.findall(r"sub-*\d+|reserv.*|femin.*|u-*\d+|women", fixture['participants'][1]['name']['value'].lower())
+                                
+                                if len( result ) > 0 or len( result2 ) > 0:
+                                    continue                                                        
+
+                            if soma_gols != 0:                    
+
+                                try:
+                                    self.times_favoritos.remove(fixture_id)                                    
+                                except:
+                                    pass
+
+                                if matches_and_options.get(fixture_id) != None:
+                                    market_name = matches_and_options[fixture_id]['market_name']                                    
+                                    # aqui eu vou salvar no banco a última odd antes de sair o gol                                    
+                                  
+                                    if not matches_and_options[fixture_id]['stats_saved_1_t']:
+                                        print('saiu gol no jogo')
+                                        matches_and_options[fixture_id]['market_name'] = '1º tempo - total de gols'
+                                        #self.save_stats(matches_and_options[fixture_id], fixture_id)
+                                        matches_and_options[fixture_id]['stats_saved_1_t'] = True
+
+                                continue
                             
                             home_team = list( filter( lambda el: el['properties']['type'] == 'HomeTeam' , fixture['participants']))
                             home_team_name = home_team[0]['name']['value']    
@@ -5126,16 +5269,13 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                             numero_gols_atual = fixture['scoreboard']['score']      
                             score = fixture['scoreboard']['score']    
 
-                            numero_gols_atual = sum([int(x) for x in numero_gols_atual.split(':')])                                       
+                            numero_gols_atual = sum([int(x) for x in numero_gols_atual.split(':')])    
                             
-                            periodId = fixture['scoreboard']['periodId']
                             periodo = fixture['scoreboard']['period']
                             is_running = fixture['scoreboard']['timer']['running']
-                            cronometro = float(fixture['scoreboard']['timer']['seconds']) / 60.0
+                            cronometro = float(fixture['scoreboard']['timer']['seconds']) / 60.0                            
 
-                            if periodo.lower() in ['não foi iniciado', 'suspenso', 'intervalo']:
-                                print(periodo.lower())
-                                continue
+                            
 
                             time_1 = fixture['participants'][0]
                             time_1_nome = time_1['name']['value']
@@ -5150,10 +5290,32 @@ APOSTA {self.qt_apostas_feitas_txt}""")
 
                             next_goal_odd_and_option_id = self.find_next_goal_odd_and_option_id( fixture['optionMarkets'], soma_gols )                            
                             if next_goal_odd_and_option_id == None:
+                                print('jogo não tem mercado')
                                 continue
 
+                            #no_goal_odd_and_option_id = self.find_no_goal_odd(fixture['optionMarkets'], soma_gols )
+
                             next_goal_odd = next_goal_odd_and_option_id[0]
-                            next_goal_option_id = next_goal_odd_and_option_id[1]                            
+                            next_goal_option_id = next_goal_odd_and_option_id[1]         
+                            next_goal_option_name = next_goal_odd_and_option_id[2]     
+
+                            if matches_and_options.get(fixture_id):
+                                print(next_goal_odd)
+                                if next_goal_odd > matches_and_options[fixture_id]['odd_before_score']:                                    
+                                    matches_and_options[fixture_id]['odd_before_score'] = next_goal_odd
+                                    print('atualizou odd')
+
+                            if periodo.lower() == 'intervalo':
+                                if matches_and_options.get(fixture_id) != None and soma_gols == 0:
+
+                                    # se isso for verdadeiro é porque não saiu gol na primeira etapa, então vou colocar nos stats uma odd de -1
+                                    if not matches_and_options[fixture_id]['stats_saved_1_t']:
+                                        print('não saiu gol no primeiro tempo')
+                                        #self.save_stats({ 'market_name': '1º tempo - total de gols', 'odd_before_score': -1 }, fixture_id )
+                                        matches_and_options[fixture_id]['market_name'] = next_goal_option_name
+                                        matches_and_options[fixture_id]['odd_before_score'] = next_goal_odd
+                                        matches_and_options[fixture_id]['stats_saved_1_t'] = True     
+                                continue                              
 
                             resultado_partida = resultado_partida[0]
                             chance_dupla = chance_dupla[0]
@@ -5170,15 +5332,14 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                                 continue                                
 
                             if fixture_id in self.times_favoritos:
-                                if next_goal_odd >= 1.8 and next_goal_odd < 2 and len( self.inserted_fixture_ids ) == 0:
-                                    self.tempo_pausa = 60          
-                                print(nome_evento)                                                
+                                if next_goal_odd >= ( self.limite_inferior - 0.3 ) and next_goal_odd < self.limite_superior and len( self.inserted_fixture_ids ) == 0:
+                                    self.tempo_pausa = 60                                                                                      
                                 print('odd do mercado: ', next_goal_odd )
 
                             if ( fixture_id in self.times_favoritos and len( self.inserted_fixture_ids ) == 0 ) or ( fixture_id in self.times_favoritos and self.varios_jogos):
                                
                                 aposta_feita = False
-                                if next_goal_odd >= 2 and next_goal_odd < 2.5 and self.bets_made.get(fixture_id+periodo) == None:                                    
+                                if next_goal_odd >= self.limite_inferior and next_goal_odd < self.limite_superior and self.bets_made.get(fixture_id+periodo) == None:                                    
                                     aposta_feita = await self.make_bet_2( nome_evento, periodo, next_goal_option_id )                                                                        
 
                                 if aposta_feita:            
@@ -5207,14 +5368,22 @@ APOSTA {self.qt_apostas_feitas_txt}""")
                                             # else:
                                             #      await self.make_bet(nome_evento, matches_and_options[fixture_id]['option_id'])
 
-                            if odd_time_1_resultado_partida <= 1.65 and gols_casa == gols_fora:
-                                any_match_of_interest = True
-                                if fixture_id not in self.times_favoritos:
+                            if self.only_favorites:
+                                if odd_time_1_resultado_partida <= 1.65 and gols_casa == gols_fora:
+                                    any_match_of_interest = True
+                                    if fixture_id not in self.times_favoritos:                             
+                                        matches_and_options[fixture_id] = { 'market_name': next_goal_option_name, 'odd_before_score': next_goal_odd, 'stats_saved_1_t': False, 'stats_saved_2_t': False }
+                                        self.times_favoritos.append(fixture_id)                                    
+                                elif odd_time_2_resultado_partida <= 1.65 and gols_casa == gols_fora:
+                                    any_match_of_interest = True
+                                    if fixture_id not in self.times_favoritos:
+                                        matches_and_options[fixture_id] = { 'market_name': next_goal_option_name, 'odd_before_score': next_goal_odd, 'stats_saved_1_t': False, 'stats_saved_2_t': False }
+                                        self.times_favoritos.append(fixture_id)      
+                            else:
+                                if fixture_id not in self.times_favoritos:                             
+                                    matches_and_options[fixture_id] = { 'market_name': next_goal_option_name, 'odd_before_score': next_goal_odd, 'stats_saved_1_t': False, 'stats_saved_2_t': False }
                                     self.times_favoritos.append(fixture_id)                                    
-                            elif odd_time_2_resultado_partida <= 1.65 and gols_casa == gols_fora:
-                                 any_match_of_interest = True
-                                 if fixture_id not in self.times_favoritos:
-                                    self.times_favoritos.append(fixture_id)                                
+
                        
 
                             # chance_dupla = list( filter(  lambda el: el['name']['value'].lower() in ['chance dupla'] ,fixture['optionMarkets'] ) )
@@ -5253,20 +5422,47 @@ APOSTA {self.qt_apostas_feitas_txt}""")
             print('Esperando...')
             sleep(self.tempo_pausa)    
 
-    def find_next_goal_odd_and_option_id( self, option_markets, soma_gols ):        
+    def get_bd_connection(self):
+        try:
+            conn = psycopg2.connect(database = 'sportingbet', 
+                                user = 'postgres', 
+                                host= 'localhost',
+                                password = 'postgres',
+                                port = '5432')
+            return conn
+        except:
+            print('Erro ao abrir conexão')
+
+    def find_no_goal_odd( self, option_markets, soma_gols ):
         market = list( filter( lambda e: e['name']['value'].lower() == '1º tempo - total de gols', option_markets ) )
         #print(market)
         for m in market:            
-            option = list( filter( lambda e: e['name']['value'].lower() == f'mais de {soma_gols},5', m['options'] ) )
+            option = list( filter( lambda e: e['name']['value'].lower() == f'menos de {soma_gols},5', m['options'] ) )
             for o in option:
-                return [float(o['price']['odds']), o['id']]
+                return [float(o['price']['odds']), o['id'], m['name']['value'].lower()]
         else:
             market = list( filter( lambda e: e['name']['value'].lower() == 'total de gols', option_markets ) )
             #print(market)
             for m in market:                
-                option = list( filter( lambda e: e['name']['value'].lower() == f'mais de {soma_gols},5', m['options'] ) )
+                option = list( filter( lambda e: e['name']['value'].lower() == f'menos de {soma_gols},5', m['options'] ) )
                 for o in option:
-                    return [float(o['price']['odds']), o['id']]
+                    return [float(o['price']['odds']), o['id'], m['name']['value'].lower()]
+        return None
+
+    def find_next_goal_odd_and_option_id( self, option_markets, soma_gols ):        
+        market = list( filter( lambda e: e['name']['value'].lower() == '1º tempo - total de gols', option_markets ) )
+        #print(market)
+        for m in market:            
+            option = list( filter( lambda e: e['name']['value'].lower() == f'menos de {soma_gols},5', m['options'] ) )
+            for o in option:
+                return [float(o['price']['odds']), o['id'], m['name']['value'].lower()]
+        else:
+            market = list( filter( lambda e: e['name']['value'].lower() == 'total de gols', option_markets ) )
+            #print(market)
+            for m in market:                
+                option = list( filter( lambda e: e['name']['value'].lower() == f'menos de {soma_gols},5', m['options'] ) )
+                for o in option:
+                    return [float(o['price']['odds']), o['id'], m['name']['value'].lower()]
         return None
                                            
 
@@ -5298,7 +5494,7 @@ APOSTA {self.qt_apostas_feitas_txt}""")
 
             self.chrome.get(f"https://sports.sportingbet.com/pt-br/sports/eventos/{nome_evento}?market=0")
             self.chrome.maximize_window()
-            self.chrome.fullscreen_window()    
+            #self.chrome.fullscreen_window()    
                                                         
             result = WebDriverWait(self.chrome, 10).until(
             EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id}"]' ) ))                                         
@@ -5338,7 +5534,7 @@ APOSTA {self.qt_apostas_feitas_txt}""")
             # vou colocar pra voltar pra página inicial
             self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
             self.chrome.maximize_window()
-            self.chrome.fullscreen_window()
+            #self.chrome.fullscreen_window()
             self.numero_apostas_feitas = 0
             self.tempo_pausa = 10   
             return False             
@@ -5351,7 +5547,7 @@ APOSTA {self.qt_apostas_feitas_txt}""")
 
             self.chrome.get(f"https://sports.sportingbet.com/pt-br/sports/eventos/{nome_evento}?market=0")
             self.chrome.maximize_window()
-            self.chrome.fullscreen_window()    
+            #self.chrome.fullscreen_window()    
 
             if '1º tempo - ' in market_name.lower():
                 clicou = False
@@ -5494,7 +5690,7 @@ APOSTA {self.qt_apostas_feitas_txt}""")
             # vou colocar pra voltar pra página inicial
             self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
             self.chrome.maximize_window()
-            self.chrome.fullscreen_window()
+            #self.chrome.fullscreen_window()
             self.numero_apostas_feitas = 0
             self.tempo_pausa = 10   
             return False             
@@ -5507,7 +5703,7 @@ APOSTA {self.qt_apostas_feitas_txt}""")
 
             self.chrome.get(f"https://sports.sportingbet.com/pt-br/sports/eventos/{nome_evento}?market=0")
             self.chrome.maximize_window()
-            self.chrome.fullscreen_window() 
+            #self.chrome.fullscreen_window() 
 
 
             if periodo in ['1º T', '1º Tempo', '1º tempo']:
@@ -5564,15 +5760,18 @@ APOSTA {self.qt_apostas_feitas_txt}""")
 
             print('cota: ', cota)
             
-            if cota < 2 or cota > 2.5 or cota2 < 2 or cota2 > 2.5:
+            if cota < self.limite_inferior or cota > self.limite_superior or cota2 < self.limite_inferior or cota2 > self.limite_superior:
                 raise Exception('odd fora do intervalo')
 
             self.cota = cota
 
-            self.valor_aposta = ( ( self.perda_acumulada + self.meta_ganho ) / ( cota - 1 ) ) + 0.01      
+            if not self.varios_jogos:
+                self.valor_aposta = ( ( self.perda_acumulada + self.meta_ganho ) / ( cota - 1 ) ) + 0.01      
 
-            if self.qt_apostas_feitas_txt != 0:
-                self.valor_aposta = 0.1                          
+                if self.qt_apostas_feitas_txt > self.tolerancia_perdas - 1:
+                    self.valor_aposta = 0.1       
+            else:
+                self.valor_aposta = self.meta_ganho                   
             
             if self.teste:
                 self.valor_aposta = 0.1            
@@ -5593,7 +5792,7 @@ APOSTA {self.qt_apostas_feitas_txt}""")
             # vou colocar pra voltar pra página inicial
             self.chrome.get('https://sports.sportingbet.com/pt-br/sports')
             self.chrome.maximize_window()
-            self.chrome.fullscreen_window()
+            #self.chrome.fullscreen_window()
             self.numero_apostas_feitas = 0
             self.tempo_pausa = 10   
             return False
@@ -5603,7 +5802,7 @@ if __name__ == '__main__':
     try:
         chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)
         chrome.acessa('https://sports.sportingbet.com/pt-br/sports')                    
-        asyncio.run( chrome.gols_fim_jogo_favoritos() )
+        asyncio.run( chrome.busca_odds_fim_jogo_sem_gol() )
     except Exception as e:
         print(e)        
         # chrome.sair()
