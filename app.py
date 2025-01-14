@@ -1116,9 +1116,9 @@ Aposta {self.qt_true_bets_made}""")
             self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
             self.varios_jogos = False        
             self.meta_progressiva = True
-            self.fator_multiplicador = 0.000446
+            self.fator_multiplicador = 0.001374
             self.quit_on_next_win = False
-            self.teste = True
+            self.teste = False
             self.numero_combinadas = 3
             self.limite_inferior = 2.8
             self.only_favorites = False
@@ -1556,7 +1556,7 @@ Aposta {self.qt_true_bets_made}""")
                                 bet = None
                                 first_match_to_start_date = None
 
-                                jogo_aberto = self.get(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                                jogo_aberto = await self.get(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
                                                                
                                 if len( jogo_aberto['betslips'] ) > 0:
                                     self.bet_slip_number = jogo_aberto['betslips'][0]['betSlipNumber']
@@ -1660,7 +1660,7 @@ Aposta {self.qt_apostas_feitas_txt}""")
                 print(e)
                 await self.testa_sessao()
 
-    def find_first_match_to_start_date( bet ):        
+    def find_first_match_to_start_date( self, bet ):        
         return sorted( map( lambda e: e['fixture']['date'], bet['bets'] ))[0]
 
     def get_bet_odd(self, option_id):
