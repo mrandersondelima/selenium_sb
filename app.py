@@ -1101,53 +1101,56 @@ Aposta {self.qt_true_bets_made}""")
     
     async def geysons_strategy(self):
 
-        self.tempo_pausa = 90
-        self.times_favoritos = []        
-        self.first_message_after_bet = False
-        self.jogos_inseridos = self.read_array_from_disk('jogos_inseridos.json')
-        self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
-        self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
-        self.soma_odds = self.le_de_arquivo('soma_odds.txt', 'float')
-        self.qt_apostas = self.le_de_arquivo('qt_apostas.txt', 'int')
-        self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
-        self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
-        self.saldo = self.le_de_arquivo('saldo.txt', 'float')
-        self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
-        self.varios_jogos = False        
-        self.meta_progressiva = True
-        self.fator_multiplicador = 0.000446
-        self.quit_on_next_win = False
-        self.teste = True
-        self.numero_combinadas = 3
-        self.limite_inferior = 2.8
-        self.only_favorites = False
-        self.odd_de_corte = 1.5
-        self.odd_inferior_para_apostar = 1.5
-        self.odd_superior_para_apostar = 2
-        self.tolerancia_perdas = 6
-        self.usar_tolerancia_perdas = False
-        self.controle_over_under = self.le_de_arquivo('controle_over_under.txt', 'int')        
-        self.only_men_professional = False
-        self.is_for_real = self.le_de_arquivo('is_for_real.txt', 'boolean')
-        self.gastos = self.le_de_arquivo('gastos.txt', 'float')
-        self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
-        self.market_name = None
-        self.horario_ultima_checagem = datetime.now()
-        self.bets_made = dict()
-        self.ultima_checagem_aposta_aberta = datetime.now()
-        self.favorite_fixture = self.le_de_arquivo('favorite_fixture.txt', 'string')
-        self.placar = self.le_de_arquivo('placar.txt', 'string')
-        self.periodo = self.le_de_arquivo('periodo.txt', 'string')
-        self.event_url = self.le_de_arquivo('event_url.txt', 'string')
-        self.qt_vezes_perdida_aposta_1 = self.le_de_arquivo('qt_vezes_perdida_aposta_1.txt', 'int')
-        self.qt_apostas_feitas_1 = self.le_de_arquivo('qt_apostas_feitas_1.txt', 'int')
-        self.qt_true_bets_made = self.le_de_arquivo('qt_true_bets_made.txt', 'int')
-        self.fixture_id = self.le_de_arquivo('fixture_id.txt', 'string')
-        self.numero_erros_global = 0
-        self.maior_meta_ganho = self.le_de_arquivo('maior_meta_ganho.txt', 'float')
-        numeros_jogos_filtrados = 0
-        self.match_started = self.le_de_arquivo('match_started.txt', 'boolean')
-        self.primeiro_alerta_sem_jogos_ao_vivo = True
+        try:
+            self.tempo_pausa = 90
+            self.times_favoritos = []        
+            self.first_message_after_bet = False
+            self.jogos_inseridos = self.read_array_from_disk('jogos_inseridos.json')
+            self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
+            self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
+            self.soma_odds = self.le_de_arquivo('soma_odds.txt', 'float')
+            self.qt_apostas = self.le_de_arquivo('qt_apostas.txt', 'int')
+            self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
+            self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
+            self.saldo = self.le_de_arquivo('saldo.txt', 'float')
+            self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
+            self.varios_jogos = False        
+            self.meta_progressiva = True
+            self.fator_multiplicador = 0.000446
+            self.quit_on_next_win = False
+            self.teste = True
+            self.numero_combinadas = 3
+            self.limite_inferior = 2.8
+            self.only_favorites = False
+            self.odd_de_corte = 1.5
+            self.odd_inferior_para_apostar = 1.5
+            self.odd_superior_para_apostar = 2
+            self.tolerancia_perdas = 6
+            self.usar_tolerancia_perdas = False
+            self.controle_over_under = self.le_de_arquivo('controle_over_under.txt', 'int')        
+            self.only_men_professional = False
+            self.is_for_real = self.le_de_arquivo('is_for_real.txt', 'boolean')
+            self.gastos = self.le_de_arquivo('gastos.txt', 'float')
+            self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
+            self.market_name = None
+            self.horario_ultima_checagem = datetime.now()
+            self.bets_made = dict()
+            self.ultima_checagem_aposta_aberta = datetime.now()
+            self.favorite_fixture = self.le_de_arquivo('favorite_fixture.txt', 'string')
+            self.placar = self.le_de_arquivo('placar.txt', 'string')
+            self.periodo = self.le_de_arquivo('periodo.txt', 'string')
+            self.event_url = self.le_de_arquivo('event_url.txt', 'string')
+            self.qt_vezes_perdida_aposta_1 = self.le_de_arquivo('qt_vezes_perdida_aposta_1.txt', 'int')
+            self.qt_apostas_feitas_1 = self.le_de_arquivo('qt_apostas_feitas_1.txt', 'int')
+            self.qt_true_bets_made = self.le_de_arquivo('qt_true_bets_made.txt', 'int')
+            self.fixture_id = self.le_de_arquivo('fixture_id.txt', 'string')
+            self.numero_erros_global = 0
+            self.maior_meta_ganho = self.le_de_arquivo('maior_meta_ganho.txt', 'float')
+            numeros_jogos_filtrados = 0
+            self.match_started = self.le_de_arquivo('match_started.txt', 'boolean')
+            self.primeiro_alerta_sem_jogos_ao_vivo = True
+        except:
+            print('erro ao ler algum arquivo')
 
         if not await self.is_logged_in():
             await self.faz_login()        
@@ -1562,6 +1565,8 @@ Aposta {self.qt_true_bets_made}""")
                                     bet = jogo_aberto['betslips'][0]       
 
                                     first_match_to_start_date = self.find_first_match_to_start_date( bet )
+                                    
+
 
                                 self.qt_apostas_feitas_txt += 1
                                 self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')  
