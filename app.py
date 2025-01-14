@@ -1383,7 +1383,7 @@ Aposta {self.qt_true_bets_made}""")
                                         print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')                                                                              
 
                     data_inicial = ( datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:00.000Z" )
-                    data_final = ( datetime.now() + timedelta(hours=15) ).strftime("%Y-%m-%dT%H:%M:00.000Z" )
+                    data_final = ( datetime.now() + timedelta(hours=9) ).strftime("%Y-%m-%dT%H:%M:00.000Z" )
                     
                     fixtures = await self.get(f"let d = await fetch('https://sports.sportingbet.bet.br/cds-api/bettingoffer/fixtures?x-bwin-accessid=YTRhMjczYjctNTBlNy00MWZlLTliMGMtMWNkOWQxMThmZTI2&lang=pt-br&country=BR&userCountry=BR&fixtureTypes=Standard&state=Latest&offerMapping=Filtered&fixtureCategories=Gridable,NonGridable,Other,Specials,Outrights&sportIds=4&regionIds=&competitionIds=&conferenceIds=&isPriceBoost=false&statisticsModes=None&skip=0&take=50&sortBy=StartDate&from={data_inicial}&to={data_final}&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                                   
                    
@@ -1440,12 +1440,13 @@ Aposta {self.qt_true_bets_made}""")
                                         market_name = option_market['name']['value']                                                                              
                                         if market_name.lower() in ['1º tempo - total de gols', 'total de gols - 1º tempo']:
                                             for option in option_market['options']:                                                        
-                                                if option['name']['value'] == 'Menos de 2,5':
+                                                if option['name']['value'] == 'Menos de 2,5' and float( option['price']['odds']) >= 0.1:
                                                     odd_under = float(option['price']['odds'])
                                                     option_id_under = option['id']    
+                                                    original_start_date = start_date
                                                     start_date = datetime.strptime( start_date, "%Y-%m-%dT%H:%M:%SZ" )
                                                     start_date = ( start_date - timedelta(hours=3) ).strftime("%d/%m/%Y %Hh%M")                                                
-                                                    match = { 'region': region, 'competition': competition, 'name': name, 'start_date': start_date, 'market_name': market_name, 'type': 0, 'score': score, 'option_name': option['name']['value'], 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd_under': odd_under, 'option_id_under' : option_id_under, 'periodo': periodo }
+                                                    match = { 'original_start_date': original_start_date, 'region': region, 'competition': competition, 'name': name, 'start_date': start_date, 'market_name': market_name, 'type': 0, 'score': score, 'option_name': option['name']['value'], 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd_under': odd_under, 'option_id_under' : option_id_under, 'periodo': periodo }
                                 
                                 option_markets = fixture['optionMarkets']
                                 for option_market in option_markets: 
@@ -1471,7 +1472,7 @@ Aposta {self.qt_true_bets_made}""")
 
                         print(periodos)
 
-                        if len(jogos_aptos) == 0:
+                        if len(jogos_aptos) < self.numero_combinadas:
                             print('--- SEM JOGOS ELEGÍVEIS ---')
 
                             print(datetime.now())
@@ -1509,9 +1510,7 @@ Aposta {self.qt_true_bets_made}""")
                             print('Não conseguiu limpar os jogos...')
                             print(e)
 
-                        self.numero_apostas_feitas = 0         
-
-                        numeros_jogos_filtrados = len( jogos_aptos )
+                        self.numero_apostas_feitas = 0                                 
 
                         for jogo_apto in jogos_aptos:        
 
@@ -1546,23 +1545,24 @@ Aposta {self.qt_true_bets_made}""")
                                 self.match_started = False
                                 self.escreve_em_arquivo('match_started.txt', 'False', 'w')
 
-                                start_date = datetime.strptime( jogo_apto['start_date'], "%Y-%m-%dT%H:%M:%SZ" )
+                                start_date = datetime.strptime( jogo_apto['original_start_date'], "%Y-%m-%dT%H:%M:%SZ" )
                                 start_date = ( start_date - timedelta(hours=3) ).strftime("%d/%m/%Y %Hh%M")
-
-                                error = True
+                                
                                 jogo_aberto = None                                       
                                 jogos_ja_inseridos.append( f"{jogo_apto['fixture_id']}{jogo_apto['periodo']}" )
                                 bet = None
+                                first_match_to_start_date = None
 
                                 jogo_aberto = self.get(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
                                 
                                 if len( jogo_aberto['betslips'] ) > 0:
                                     self.bet_slip_number = jogo_aberto['betslips'][0]['betSlipNumber']
-                                    self.escreve_em_arquivo('bet_slip_number.txt', self.bet_slip_number, 'w')
-                                    error = False                                                                                           
+                                    self.escreve_em_arquivo('bet_slip_number.txt', self.bet_slip_number, 'w')                                                                                                                     
 
                                     bet = jogo_aberto['betslips'][0]       
-                                    
+
+                                    first_match_to_start_date = self.find_first_match_to_start_date( bet )
+
                                 self.qt_apostas_feitas_txt += 1
                                 self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')  
 
@@ -1597,8 +1597,7 @@ Aposta {self.qt_true_bets_made}""")
                                         await self.telegram_bot.envia_mensagem(f"""Valor da aposta: R$ {self.valor_aposta:.2f}
 Saldo: R$ {self.saldo:.2f}
 Início: {start_date}
-Aposta {self.qt_true_bets_made}
-Evento: {jogo_apto['name']} - {jogo_apto['competition']} - {jogo_apto['region']}""")                             
+Aposta {self.qt_apostas_feitas_txt}""")                             
                                     except Exception as e:
                                         print(e)
                                         print('Não foi possível enviar mensagem ao telegram.')
@@ -1613,10 +1612,12 @@ Evento: {jogo_apto['name']} - {jogo_apto['competition']} - {jogo_apto['region']}
                                 self.saldo_antes_aposta = self.saldo
                                 self.escreve_em_arquivo('saldo_antes_aposta.txt', f'{self.saldo:.2f}', 'w')      
 
-                                self.wait_fixture_to_start(jogo_apto['start_date'])                          
+                                self.wait_fixture_to_start(first_match_to_start_date)                          
 
                                 if not self.varios_jogos:
                                     break
+                            else:
+                                self.numero_apostas_feitas = 0
                            
                 except ErroCotaForaIntervalo as e:
                     # pode ter acontecido do mercado ter sumido no momento da aposta ou a cota estar fora o intervalo
@@ -1654,6 +1655,8 @@ Evento: {jogo_apto['name']} - {jogo_apto['competition']} - {jogo_apto['region']}
                 print(e)
                 await self.testa_sessao()
 
+    def find_first_match_to_start_date( bet ):
+        return sorted( map( lambda e: e['fixture']['date'], bet['betslip']['bets'] ))[0]
 
     def get_bet_odd(self, option_id):
         cota = None

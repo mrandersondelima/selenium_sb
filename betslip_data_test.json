@@ -1,0 +1,500 @@
+{
+    "betslip": {
+      "betSlipNumber": "1ZXEL65DCE",
+      "type": "Múltipla",
+      "typeAsName": "Multi bet",
+      "typeId": 2,
+      "conclusionDateUtc": "2025-01-14T12:22:26.007Z",
+      "stake": {
+        "currency": "BRL",
+        "value": 0.1000
+      },
+      "stakePerBet": {
+        "currency": "BRL",
+        "value": 0.1000
+      },
+      "payout": {
+        "currency": "BRL",
+        "value": 0.0000
+      },
+      "maxPayout": {
+        "currency": "BRL",
+        "value": 0.18
+      },
+      "state": "Open",
+      "bets": [
+        {
+          "index": 1,
+          "state": "Won",
+          "outcome": "Ganhas",
+          "odds": {
+            "european": 1.18,
+            "oddsFormat": "European"
+          },
+          "oddsFormat": "European",
+          "oddsChangeAcceptanceMode": "Higher",
+          "isBanker": false,
+          "fixture": {
+            "id": 7535919,
+            "compoundId": "2:7535919",
+            "name": "Al Mokawloon Al Arab - El Seka El Hadid",
+            "date": "2025-01-14T12:30:00Z",
+            "type": "PairGame"
+          },
+          "competition": {
+            "id": 101688,
+            "name": "Second Division A"
+          },
+          "market": {
+            "id": 174760966,
+            "name": "Total de Gols"
+          },
+          "option": {
+            "id": 606040740,
+            "name": "Mais de 0,5"
+          },
+          "region": {
+            "id": 111,
+            "name": "Egito"
+          },
+          "sport": {
+            "id": 4,
+            "name": "Futebol"
+          },
+          "optionBetDetails": {
+            "isBetBuilder": false,
+            "isVirtual": false,
+            "isPriceBoost": false,
+            "pick": {
+              "id": 1822086403,
+              "optionId": 606040740,
+              "optionName": "Mais de 0,5",
+              "positionInBet": 1
+            },
+            "picks": [
+              {
+                "id": 1822086403,
+                "optionId": 606040740,
+                "optionName": "Mais de 0,5",
+                "positionInBet": 1
+              }
+            ],
+            "isStartingPrice": false,
+            "xCastSettlementDeviated": false,
+            "bestOddsGuaranteedState": "NotEligible"
+          },
+          "isBetCorrection": false
+        },
+        {
+          "index": 2,
+          "state": "Won",
+          "outcome": "Ganhas",
+          "odds": {
+            "european": 1.02,
+            "oddsFormat": "European"
+          },
+          "oddsFormat": "European",
+          "oddsChangeAcceptanceMode": "Higher",
+          "isBanker": false,
+          "fixture": {
+            "id": 7535919,
+            "compoundId": "2:7535919",
+            "name": "Al Mokawloon Al Arab - El Seka El Hadid",
+            "date": "2025-01-14T12:30:00Z",
+            "type": "PairGame"
+          },
+          "competition": {
+            "id": 101688,
+            "name": "Second Division A"
+          },
+          "market": {
+            "id": 174786255,
+            "name": "1º Tempo - Total de Gols"
+          },
+          "option": {
+            "id": 606191120,
+            "name": "Menos de 2,5"
+          },
+          "region": {
+            "id": 111,
+            "name": "Egito"
+          },
+          "sport": {
+            "id": 4,
+            "name": "Futebol"
+          },
+          "optionBetDetails": {
+            "isBetBuilder": false,
+            "isVirtual": false,
+            "isPriceBoost": false,
+            "pick": {
+              "id": 1822841844,
+              "optionId": 606191120,
+              "optionName": "Menos de 2,5",
+              "positionInBet": 1
+            },
+            "picks": [
+              {
+                "id": 1822841844,
+                "optionId": 606191120,
+                "optionName": "Menos de 2,5",
+                "positionInBet": 1
+              }
+            ],
+            "isStartingPrice": false,
+            "xCastSettlementDeviated": false,
+            "bestOddsGuaranteedState": "NotEligible"
+          },
+          "isBetCorrection": false
+        },
+        {
+          "index": 3,
+          "state": "Open",
+          "outcome": "Abertas",
+          "odds": {
+            "european": 1.17,
+            "oddsFormat": "European"
+          },
+          "oddsFormat": "European",
+          "oddsChangeAcceptanceMode": "Higher",
+          "isBanker": false,
+          "fixture": {
+            "id": 7535921,
+            "compoundId": "2:7535921",
+            "name": "Aswan FC - Tanta SC",
+            "date": "2025-01-14T12:30:00Z",
+            "type": "PairGame"
+          },
+          "competition": {
+            "id": 101688,
+            "name": "Second Division A"
+          },
+          "market": {
+            "id": 174760856,
+            "name": "Total de Gols"
+          },
+          "option": {
+            "id": 606040503,
+            "name": "Mais de 0,5"
+          },
+          "region": {
+            "id": 111,
+            "name": "Egito"
+          },
+          "sport": {
+            "id": 4,
+            "name": "Futebol"
+          },
+          "optionBetDetails": {
+            "isBetBuilder": false,
+            "isVirtual": false,
+            "isPriceBoost": false,
+            "pick": {
+              "id": 1822085631,
+              "optionId": 606040503,
+              "optionName": "Mais de 0,5",
+              "positionInBet": 1
+            },
+            "picks": [
+              {
+                "id": 1822085631,
+                "optionId": 606040503,
+                "optionName": "Mais de 0,5",
+                "positionInBet": 1
+              }
+            ],
+            "isStartingPrice": false,
+            "xCastSettlementDeviated": false,
+            "bestOddsGuaranteedState": "NotEligible"
+          },
+          "isBetCorrection": false
+        },
+        {
+          "index": 4,
+          "state": "Won",
+          "outcome": "Ganhas",
+          "odds": {
+            "european": 1.02,
+            "oddsFormat": "European"
+          },
+          "oddsFormat": "European",
+          "oddsChangeAcceptanceMode": "Higher",
+          "isBanker": false,
+          "fixture": {
+            "id": 7535921,
+            "compoundId": "2:7535921",
+            "name": "Aswan FC - Tanta SC",
+            "date": "2025-01-14T12:30:00Z",
+            "type": "PairGame"
+          },
+          "competition": {
+            "id": 101688,
+            "name": "Second Division A"
+          },
+          "market": {
+            "id": 174786301,
+            "name": "1º Tempo - Total de Gols"
+          },
+          "option": {
+            "id": 606191277,
+            "name": "Menos de 2,5"
+          },
+          "region": {
+            "id": 111,
+            "name": "Egito"
+          },
+          "sport": {
+            "id": 4,
+            "name": "Futebol"
+          },
+          "optionBetDetails": {
+            "isBetBuilder": false,
+            "isVirtual": false,
+            "isPriceBoost": false,
+            "pick": {
+              "id": 1822842135,
+              "optionId": 606191277,
+              "optionName": "Menos de 2,5",
+              "positionInBet": 1
+            },
+            "picks": [
+              {
+                "id": 1822842135,
+                "optionId": 606191277,
+                "optionName": "Menos de 2,5",
+                "positionInBet": 1
+              }
+            ],
+            "isStartingPrice": false,
+            "xCastSettlementDeviated": false,
+            "bestOddsGuaranteedState": "NotEligible"
+          },
+          "isBetCorrection": false
+        },
+        {
+          "index": 5,
+          "state": "Won",
+          "outcome": "Ganhas",
+          "odds": {
+            "european": 1.12,
+            "oddsFormat": "European"
+          },
+          "oddsFormat": "European",
+          "oddsChangeAcceptanceMode": "Higher",
+          "isBanker": false,
+          "fixture": {
+            "id": 7535923,
+            "compoundId": "2:7535923",
+            "name": "Dayrout - LA Viena FC",
+            "date": "2025-01-14T12:30:00Z",
+            "type": "PairGame"
+          },
+          "competition": {
+            "id": 101688,
+            "name": "Second Division A"
+          },
+          "market": {
+            "id": 174760910,
+            "name": "Total de Gols"
+          },
+          "option": {
+            "id": 606040622,
+            "name": "Mais de 0,5"
+          },
+          "region": {
+            "id": 111,
+            "name": "Egito"
+          },
+          "sport": {
+            "id": 4,
+            "name": "Futebol"
+          },
+          "optionBetDetails": {
+            "isBetBuilder": false,
+            "isVirtual": false,
+            "isPriceBoost": false,
+            "pick": {
+              "id": 1822086018,
+              "optionId": 606040622,
+              "optionName": "Mais de 0,5",
+              "positionInBet": 1
+            },
+            "picks": [
+              {
+                "id": 1822086018,
+                "optionId": 606040622,
+                "optionName": "Mais de 0,5",
+                "positionInBet": 1
+              }
+            ],
+            "isStartingPrice": false,
+            "xCastSettlementDeviated": false,
+            "bestOddsGuaranteedState": "NotEligible"
+          },
+          "isBetCorrection": false
+        },
+        {
+          "index": 6,
+          "state": "Won",
+          "outcome": "Ganhas",
+          "odds": {
+            "european": 1.04,
+            "oddsFormat": "European"
+          },
+          "oddsFormat": "European",
+          "oddsChangeAcceptanceMode": "Higher",
+          "isBanker": false,
+          "fixture": {
+            "id": 7535923,
+            "compoundId": "2:7535923",
+            "name": "Dayrout - LA Viena FC",
+            "date": "2025-01-14T12:30:00Z",
+            "type": "PairGame"
+          },
+          "competition": {
+            "id": 101688,
+            "name": "Second Division A"
+          },
+          "market": {
+            "id": 174786272,
+            "name": "1º Tempo - Total de Gols"
+          },
+          "option": {
+            "id": 606191164,
+            "name": "Menos de 2,5"
+          },
+          "region": {
+            "id": 111,
+            "name": "Egito"
+          },
+          "sport": {
+            "id": 4,
+            "name": "Futebol"
+          },
+          "optionBetDetails": {
+            "isBetBuilder": false,
+            "isVirtual": false,
+            "isPriceBoost": false,
+            "pick": {
+              "id": 1822841888,
+              "optionId": 606191164,
+              "optionName": "Menos de 2,5",
+              "positionInBet": 1
+            },
+            "picks": [
+              {
+                "id": 1822841888,
+                "optionId": 606191164,
+                "optionName": "Menos de 2,5",
+                "positionInBet": 1
+              }
+            ],
+            "isStartingPrice": false,
+            "xCastSettlementDeviated": false,
+            "bestOddsGuaranteedState": "NotEligible"
+          },
+          "isBetCorrection": false
+        }
+      ],
+      "totalOdds": {
+        "european": 1.83,
+        "oddsFormat": "European"
+      },
+      "combinations": [
+        
+      ],
+      "containsLiveBets": false,
+      "isFreeBet": false,
+      "isEarlyPayout": false,
+      "isDelayedForEarlyPayout": false,
+      "isBasicModel": false,
+      "slipType": "Combo",
+      "grossPayout": {
+        "currency": "BRL",
+        "value": 0.0000
+      },
+      "grossPossibleWinnings": {
+        "currency": "BRL",
+        "value": 0.18
+      },
+      "bestOddsGuaranteedInformation": {
+        "state": "NotEligible"
+      },
+      "promoTokens": [
+        
+      ],
+      "edsPromoTokens": [
+        
+      ],
+      "signPostingRewards": [
+        
+      ],
+      "signPostings": [
+        
+      ],
+      "isEditBet": false,
+      "editBetInformation": {
+        "betSlipRealNumber": "1ZXEL65DCE",
+        "editBetHistory": [
+          
+        ]
+      },
+      "earlyPayoutInformation": {
+        "autoCashoutTriggered": false
+      },
+      "isTeaserBet": false,
+      "betGroups": [
+        {
+          "index": 1,
+          "betGroupType": "Ogp",
+          "bets": [
+            1,
+            2
+          ],
+          "odds": {
+            "european": 1.25,
+            "oddsFormat": "European"
+          },
+          "betGroupState": "Won",
+          "outcome": "Ganhas",
+          "ogpBetGroupDetails": {
+            
+          }
+        },
+        {
+          "index": 2,
+          "betGroupType": "Ogp",
+          "bets": [
+            3,
+            4
+          ],
+          "odds": {
+            "european": 1.22,
+            "oddsFormat": "European"
+          },
+          "betGroupState": "Open",
+          "outcome": "Abertas",
+          "ogpBetGroupDetails": {
+            
+          }
+        },
+        {
+          "index": 3,
+          "betGroupType": "Ogp",
+          "bets": [
+            5,
+            6
+          ],
+          "odds": {
+            "european": 1.2,
+            "oddsFormat": "European"
+          },
+          "betGroupState": "Won",
+          "outcome": "Ganhas",
+          "ogpBetGroupDetails": {
+            
+          }
+        }
+      ]
+    }
+  }
