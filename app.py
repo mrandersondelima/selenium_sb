@@ -469,30 +469,32 @@ class ChromeAuto():
             raise e
         
         sleep(3)
-        
-        # no começo de cada laço ele vai verificar se tem um banner atrapalhando as coisas e vai fechar
-        try:
-            self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
-        except:
-            print('Erro ao tentar fechar banner')        
 
-        try:
-            self.chrome.execute_script("var botao = document.querySelector('.ui-icon.theme-ex.ng-star-inserted'); if (botao) { botao.click(); }")                    
-        except:                        
-            print('Erro ao tentar fechar banner')
-
-        try:
-            self.chrome.execute_script("var botao = document.querySelector('.message-close'); if (botao) { botao.click(); }")                    
-        except:                        
-            print('Erro ao tentar fechar roleta')
+        if self.numero_apostas_feitas == 0:
         
-        try:
-            self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
-            sleep(1)
-            self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
-        except Exception as e:
-            print('Não conseguiu limpar os jogos...')
-            print(e)
+            # no começo de cada laço ele vai verificar se tem um banner atrapalhando as coisas e vai fechar
+            try:
+                self.chrome.execute_script("var botao = document.querySelector(\"button[data-aut='button-x-close']\"); if (botao) { botao.click(); }")
+            except:
+                print('Erro ao tentar fechar banner')        
+
+            try:
+                self.chrome.execute_script("var botao = document.querySelector('.ui-icon.theme-ex.ng-star-inserted'); if (botao) { botao.click(); }")                    
+            except:                        
+                print('Erro ao tentar fechar banner')
+
+            try:
+                self.chrome.execute_script("var botao = document.querySelector('.message-close'); if (botao) { botao.click(); }")                    
+            except:                        
+                print('Erro ao tentar fechar roleta')
+            
+            try:
+                self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
+                sleep(1)
+                self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                        
+            except Exception as e:
+                print('Não conseguiu limpar os jogos...')
+                print(e)
 
     async def increment_global_errors(self):
         self.numero_erros_global += 1
@@ -1115,12 +1117,13 @@ Aposta {self.qt_true_bets_made}""")
         self.meta_progressiva = True
         self.fator_multiplicador = 0.000446
         self.quit_on_next_win = False
-        self.teste = False
+        self.teste = True
+        self.numero_combinadas = 3
         self.limite_inferior = 2.8
         self.only_favorites = False
         self.odd_de_corte = 1.5
-        self.odd_inferior_para_apostar = 1.17
-        self.odd_superior_para_apostar = 1.26
+        self.odd_inferior_para_apostar = 1.5
+        self.odd_superior_para_apostar = 2
         self.tolerancia_perdas = 6
         self.usar_tolerancia_perdas = False
         self.controle_over_under = self.le_de_arquivo('controle_over_under.txt', 'int')        
@@ -1146,13 +1149,13 @@ Aposta {self.qt_true_bets_made}""")
         self.match_started = self.le_de_arquivo('match_started.txt', 'boolean')
         self.primeiro_alerta_sem_jogos_ao_vivo = True
 
-        # if not await self.is_logged_in():
-        #     await self.faz_login()        
+        if not await self.is_logged_in():
+            await self.faz_login()        
 
-        # await self.le_saldo()
-        # print('saldo: ', self.saldo)
+        await self.le_saldo()
+        print('saldo: ', self.saldo)
 
-        #self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+        self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
 
         if self.teste:
             print('=========== MODO DE TESTE ATIVADO ============')
@@ -1457,7 +1460,7 @@ Aposta {self.qt_true_bets_made}""")
                                                         match['odd_over'] = odd_over
                                                         match['option_id_over'] = option_id_over                                               
 
-                                if match != None and match.get('odd_over') and match['fixture_id'] not in self.jogos_inseridos:
+                                if match != None and match.get('odd_over'):
                                     jogos_aptos.append( match )                               
 
                             except Exception as e:                                    
@@ -1482,22 +1485,20 @@ Aposta {self.qt_true_bets_made}""")
 
                             self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=10))
                             continue        
-                        else:
-                            mensagem_telegram = ''
-                            for jogo in jogos_aptos:
-                                nome_evento = jogo['nome_evento']
-                                mensagem_telegram += f"{jogo['start_date']} - {base_url}/sports/eventos/{nome_evento}?market=3\n"
+                        # else:
+                        #     mensagem_telegram = ''
+                        #     for jogo in jogos_aptos:
+                        #         nome_evento = jogo['nome_evento']
+                        #         mensagem_telegram += f"{jogo['start_date']} - {base_url}/sports/eventos/{nome_evento}?market=3\n"
 
-                            try:
-                                await self.telegram_bot.envia_mensagem(mensagem_telegram)              
-                                self.jogos_inseridos.extend( list( map( lambda e: e['fixture_id'], jogos_aptos )) )
-                                self.save_array_on_disk('jogos_inseridos.json', self.jogos_inseridos)
-                            except Exception as e:
-                                print('não foi possível enviar mensagem o telegram')
+                        #     try:
+                        #         await self.telegram_bot.envia_mensagem(mensagem_telegram)              
+                        #         self.jogos_inseridos.extend( list( map( lambda e: e['fixture_id'], jogos_aptos )) )
+                        #         self.save_array_on_disk('jogos_inseridos.json', self.jogos_inseridos)
+                        #     except Exception as e:
+                        #         print('não foi possível enviar mensagem o telegram')
 
-                            self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=10))
-                        
-                        continue
+                        #     self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=10))
                         
                         # caso haja algum jogo no cupom a gente vai tentar limpar
                         try:
@@ -1520,6 +1521,9 @@ Aposta {self.qt_true_bets_made}""")
 
                             if jogo_apto['type'] in [0, 1]:
                                 bet_made = await self.make_bet_geyson(jogo_apto)
+
+                            if self.numero_apostas_feitas < self.numero_combinadas:
+                                continue
                             
                             if bet_made and not self.varios_jogos:
                                 
@@ -1549,15 +1553,13 @@ Aposta {self.qt_true_bets_made}""")
                                 jogo_aberto = None                                       
                                 jogos_ja_inseridos.append( f"{jogo_apto['fixture_id']}{jogo_apto['periodo']}" )
                                 bet = None
-                                while error:
-                                    try:
-                                        jogo_aberto = self.chrome.execute_script(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                                        if len( jogo_aberto['betslips'] ) > 0:
-                                            self.bet_slip_number = jogo_aberto['betslips'][0]['betSlipNumber']
-                                            self.escreve_em_arquivo('bet_slip_number.txt', self.bet_slip_number, 'w')
-                                            error = False                                                
-                                    except:
-                                        await self.testa_sessao()                                                
+
+                                jogo_aberto = self.get(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                                
+                                if len( jogo_aberto['betslips'] ) > 0:
+                                    self.bet_slip_number = jogo_aberto['betslips'][0]['betSlipNumber']
+                                    self.escreve_em_arquivo('bet_slip_number.txt', self.bet_slip_number, 'w')
+                                    error = False                                                                                           
 
                                     bet = jogo_aberto['betslips'][0]       
                                     
@@ -1773,19 +1775,23 @@ Evento: {jogo_apto['name']} - {jogo_apto['competition']} - {jogo_apto['region']}
             
             sleep(1)    
 
-            cota = None
-            try:
-                cota = self.get_bet_odd_geyson()
-            except:
-                return False
-            
-            if cota == None:
-                return False
+            self.numero_apostas_feitas += 1
 
-            self.calcula_valor_aposta(cota)
+            if self.numero_apostas_feitas == self.numero_combinadas:
 
-            aposta_feita = await self.insere_valor(None)
-            return aposta_feita   
+                cota = None
+                try:
+                    cota = self.get_bet_odd_geyson()
+                except:
+                    return False
+                
+                if cota == None:
+                    return False
+
+                self.calcula_valor_aposta(cota)
+
+                aposta_feita = await self.insere_valor(None)
+                return aposta_feita   
         except:
             return False            
 
