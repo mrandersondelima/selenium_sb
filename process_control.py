@@ -7,6 +7,7 @@ import os
 import signal
 import asyncio
 import psutil
+from credenciais import app_path
 
 def le_de_arquivo(nome_arquivo, tipo):
     with open(nome_arquivo, 'r') as f:
@@ -53,7 +54,7 @@ async def main():
 
 
             if not proc:
-                proc = await asyncio.create_subprocess_exec("python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py",
+                proc = await asyncio.create_subprocess_exec("python", r""+app_path,
                                                     stdout=sys.stdout, stderr=sys.stderr)       
 
             diferenca_tempo = datetime.now() - last_time_check_datetime
@@ -74,7 +75,7 @@ async def main():
 
                 sleep(10)
 
-                proc = await asyncio.create_subprocess_exec("python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py",
+                proc = await asyncio.create_subprocess_exec("python", r""+app_path,
                                                     stdout=sys.stdout, stderr=sys.stderr)
                 # p = Popen([r"python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py"], stdout=sys.stdout, stderr=sys.stderr, bufsize=1, universal_newlines=True, stdin=PIPE)
             
