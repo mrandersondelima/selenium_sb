@@ -5,3 +5,5 @@ __pycache__
 Perfil
 chromedriver-win64*
 .png
+.json
+.txt
