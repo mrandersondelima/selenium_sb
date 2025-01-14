@@ -1,7 +1,7 @@
 numero_dias = 30
-greens_ao_dia = 20
-porcentagem = 0.0035
-banca_inicial = 388.21
+greens_ao_dia = 15
+porcentagem = 0.0081
+banca_inicial = 141.79
 banca_final = banca_inicial
 qt_greens = 0
 
@@ -19,10 +19,10 @@ for i in range(numero_dias):
 
         input()
 
-        # if banca_final >= banca_inicial * 2:
-        #     print(banca_final)
-        #     print(qt_greens)
-        #     exit()
+        if banca_final >= banca_inicial * 2:
+            print('----------------------')
+            
+
 
 print(banca_final)
 print('Lucro: ', banca_final - banca_inicial)

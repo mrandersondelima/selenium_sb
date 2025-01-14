@@ -822,7 +822,7 @@ class ChromeAuto():
                     print('Não conseguiu limpar os jogos...')
                     traceback.print_exc()   
 
-                n_combinados = 3
+                n_combinados = 1
 
                 for i in range(n_combinados):          
 
@@ -858,7 +858,7 @@ class ChromeAuto():
                     while not clicou and count < 3:
                         try:
                             clique_odd_acima_1_meio = WebDriverWait(self.graphic_chrome, 5).until(
-                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = '{self.options_market[self.options_market_index[self.index]]}']/ancestor::ms-event-pick")))
+                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = 'Abaixo de 2.5']/ancestor::ms-event-pick")))
                             clique_odd_acima_1_meio.click()
                             clicou = True
                         except Exception as e:
@@ -876,13 +876,13 @@ class ChromeAuto():
 
                             if count % 4 == 0 and count != 0:
                                 clique_odd_acima_1_meio = WebDriverWait(self.graphic_chrome, 5).until(
-                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = '{self.options_market[self.options_market_index[self.index]]}']/ancestor::ms-event-pick")))
+                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = 'Abaixo de 2.5']/ancestor::ms-event-pick")))
                                 clique_odd_acima_1_meio.click()
 
                                 sleep(1)
 
                                 clique_odd_acima_1_meio = WebDriverWait(self.graphic_chrome, 5).until(
-                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = '{self.options_market[self.options_market_index[self.index]]}']/ancestor::ms-event-pick")))
+                                EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space(text()) = 'Abaixo de 2.5']/ancestor::ms-event-pick")))
                                 clique_odd_acima_1_meio.click()
 
                             if i == 0:

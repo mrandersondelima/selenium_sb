@@ -101,7 +101,7 @@ class ChromeAuto():
 
         valor_maximo = 9586.88
 
-        odds1 = [0, 2.3, 3, 2.8]
+        odds1 = [0, 1.68, 3, 2.8]
         odds2 = [0, 2.3, 3, 2.8]
         odds3 = [0, 2.3, 3,1, 2.7]
         odds4 = [0, 2.15,2.85,3.25]
@@ -110,18 +110,18 @@ class ChromeAuto():
         odds7 = [0, 2.1,3,3.2]
         odds8 = [0, 2.37,3.2,2.95]
 
-        CF = [1,2,3]
-        FF = [1,2,3]
+        CF = [1,1,1,2,2,3]
+        FF = [3,3,3,2,2,1]
         j1 = CF
-        j2 = CF
+        j2 = FF
         j3 = CF
-        j4 = CF
-        j5 = FF
-        j6 = FF
+        j4 = FF
+        j5 = CF
+        j6 = CF
         j7 = CF
         j8 = FF
         j9 = CF
-        j10 = CF
+        j10 = FF
 
         i = 0
 
@@ -134,14 +134,14 @@ class ChromeAuto():
             while True:
                 jogo = []
                 for _ in range(self.numero_jogos_por_aposta):
-                    jogo.append(randint(0,2))
+                    jogo.append(randint(0,5))
 
                 #print(jogo)
 
-                soma_empates = jogo.count(1)
-                soma_zebra = jogo.count(8)
+                soma_empates = jogo.count(3) + jogo.count(4)
+                soma_zebra = jogo.count(5)
 
-                if soma_empates <= 3:
+                if soma_empates in [1,2] and soma_zebra in [1,2]:
                     break
 
             print(len(self.jogos_aleatorios))
@@ -278,18 +278,39 @@ class ChromeAuto():
                         print(e)
                         return
 
+                input_login_text = WebDriverWait(self.chrome, 10).until(
+                    EC.element_to_be_clickable((By.ID, 'userId' )  ))
+                input_login_text = input_login_text.get_property('value')                
 
                 input_login = WebDriverWait(self.chrome, 10).until(
                     EC.element_to_be_clickable((By.ID, 'userId' )  )) 
-                input_login.clear()
-                input_login.send_keys(usuario)         
+
+                while input_login_text != usuario:
+                    input_login.clear()
+                    sleep(1)
+                    input_login.send_keys(usuario)    
+
+                    input_login_text = WebDriverWait(self.chrome, 10).until(
+                        EC.element_to_be_clickable((By.ID, 'userId' )  ))
+                    input_login_text = input_login_text.get_property('value')     
 
                 print('achou campo login')
+
+                input_password_text = WebDriverWait(self.chrome, 10).until(
+                    EC.element_to_be_clickable((By.NAME, 'password' )  ))
+                input_password_text = input_password_text.get_property('value')
                 
                 input_password = WebDriverWait(self.chrome, 10).until(
                     EC.element_to_be_clickable((By.NAME, 'password' )  )) 
-                input_password.clear()
-                input_password.send_keys(senha)
+                
+                while input_password_text != senha:
+                    input_password.clear()
+                    sleep(1)
+                    input_password.send_keys(senha)
+
+                    input_password_text = WebDriverWait(self.chrome, 10).until(
+                        EC.element_to_be_clickable((By.NAME, 'password' )  ))
+                    input_password_text = input_password_text.get_property('value')
 
                 print('achou campo senha')
 
@@ -319,7 +340,7 @@ class ChromeAuto():
                     try:
                          # aqui vou tentar buscar algo da API pra ver se logou de verdade
                         jogos_abertos = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                        if jogos_abertos['summary']['liveBetsCount']:
+                        if not jogos_abertos['summary']['hasError']:
                             print('logou com sucesso')
                         break
                     except:
@@ -353,7 +374,7 @@ class ChromeAuto():
                     url_acesso = 'https://sports.sportingbet.com/pt-br/sports'
                 self.chrome.get(url_acesso)
                 self.chrome.maximize_window()
-                self.chrome.fullscreen_window()
+                #self.chrome.fullscreen_window()
                 print(e)
                 if tentativas == 5:
                     self.telegram_bot.envia_mensagem('SISTEMA TRAVADO NO LOGIN')
@@ -401,15 +422,15 @@ class ChromeAuto():
                     try:
                         #self.chrome.get_screenshot_as_file(filename='gerar_jogo.png')
                         jogo = WebDriverWait(self.chrome, 20).until(
-                                EC.element_to_be_clickable((By.XPATH, f'/html/body/vn-app/vn-dynamic-layout-slot[5]/vn-main/main/div/ms-main/div[1]/ng-scrollbar/div/div/div/div/ms-main-column/div/ms-favourites-dashboard/div[2]/div/ms-grid/div/ms-event-group/ms-event[{jogo_atual}]/div/div/ms-option-group[1]/ms-option[{j}]/ms-event-pick' ) ))                                   
-                                                                        
+                                EC.element_to_be_clickable((By.XPATH, f'/html/body/vn-app/vn-dynamic-layout-slot[5]/vn-main/main/div/ms-main/div[1]/ng-scrollbar[1]/div/div/div/div/ms-main-column/div/ms-favourites-dashboard/div/ms-grid/div/ms-event-group/ms-event[{jogo_atual}]/div/div/ms-option-group[1]/ms-option[{j}]/ms-event-pick' ) ))                                   
+                                        
                         jogo.click() 
                         clicou = True   
                         jogo_atual += 1                        
                         sleep(0.1)
                     except Exception as e:
-                        self.is_new_game = False         
-                        self.faz_login()  
+                        print(e)
+                        self.is_new_game = False                                 
                         self.gera_jogos_aleatorios(nome_arquivo)   
                         self.faz_apostas(nome_arquivo) 
 
@@ -418,9 +439,9 @@ class ChromeAuto():
                 try:    
                     self.insere_valor_2()    
                     fez_aposta = True
-                except:
-                    self.is_new_game = False                    
-                    self.faz_login()  
+                except Exception as e:
+                    print(e)
+                    self.is_new_game = False                                        
                     self.gera_jogos_aleatorios(nome_arquivo)   
                     self.faz_apostas(nome_arquivo)                    
 
@@ -428,6 +449,7 @@ class ChromeAuto():
                 pickle.dump(self.jogos_aleatorios, fp)
 
         self.chrome.quit()
+        exit()
 
 
     def filtro(self, elemento):
@@ -2435,13 +2457,15 @@ class ChromeAuto():
                     cachouts['betslips'].extend(c['betslips'])
 
                 for bet in cachouts['betslips']:
-                    print(bet['betSlipNumber'])
+                    
                     c1 = bet['betSlipNumber']
                     c_2 = self.chrome.execute_script(f'let d = await fetch("https://sports.sportingbet.com/pt-br/sports/api/CashoutCheckAndSubscribe?betNumbers={c1}&source=mybets&forceFresh=1"); return await d.json();')
                     c_4 = c_2['earlyPayouts'][0]
 
                     bet_number = c_4['betNumber']
                     v =  float(c_4['earlyPayoutValue'])
+
+                    print(bet['betSlipNumber'], v)
                     soma_odds += v
                     if apostas_cachout.get(bet_number) is None:
                         apostas_cachout[bet_number] = float( c_4['earlyPayoutValue'] )
@@ -2663,37 +2687,40 @@ class ChromeAuto():
         if self.valor_aposta < 0.10:
             self.valor_aposta = 0.10
 
-
-        try:
-            input_valor = WebDriverWait(self.chrome, 20).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'stake-input-value') )) 
-            input_valor.clear()
-            input_valor.send_keys(f'{self.valor_aposta:.2f}')
-        except Exception as e:
-            self.tempo_pausa = 30
-            raise Exception('erro ao inserir valor no campo')
+        inseriu_valor = False
+        while not inseriu_valor:
+            try:
+                input_valor = WebDriverWait(self.chrome, 10).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, 'stake-input-value') )) 
+                input_valor.clear()
+                sleep(0.1)
+                input_valor.send_keys(f'{self.valor_aposta:.2f}')
+                inseriu_valor = True
+            except Exception as e:      
+                print(e)
+                print('erro ao inserir valor no campo')                      
                     
         sleep(0.2)
 
-        try:
-            botao_aposta = WebDriverWait(self.chrome, 20).until(
-                    EC.element_to_be_clickable((By.CLASS_NAME, 'betslip-place-button' ) )) 
-            botao_aposta.click()     
-        except:
-            self.tempo_pausa = 30
-            raise Exception('erro ao clicar no botão')
+        clicou_botao = False
+        while not clicou_botao:
+            try:            
+                botao_aposta = WebDriverWait(self.chrome, 10).until(
+                        EC.element_to_be_clickable((By.CLASS_NAME, 'betslip-place-button' ) )) 
+                botao_aposta.click()     
+                clicou_botao = True
+            except Exception as e:            
+                sleep(0.5)
+                print(e)
+                print('erro ao clicar no botão')
                 
-        sleep(0.2)
-        
-        try:
-            botao_fechar = WebDriverWait(self.chrome, 20).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, '.betslip-result-actions .btn-primary' ) )) 
-            botao_fechar.click() 
+        sleep(0.2)        
 
+        try:
+            botao_fechar = WebDriverWait(self.chrome, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, '.betslip-result-actions.ng-star-inserted button' ) ))                 
+            botao_fechar.click() 
         except:
-            # se ele não clicou no botão de fechar é porque a aposta não foi feita
-            # então vai clicar no botão de fazer aposta de novo
-            print('erro ao clicar no botão de fechar')
             raise Exception('erro ao clicar no botão de fechar')
             # verificamos se há apostas em aberto
         
@@ -3225,14 +3252,28 @@ if __name__ == '__main__':
     #numero_apostas = int(input())
     #numero_jogos_por_aposta = int(input())
 
-    #apenas_analisa = int(input())   
+    apenas_analisa = int(input())       
 
     nome_arquivo = sys.argv[1]
     index = int(sys.argv[2])
     is_new_game = True if sys.argv[3] == 'True' else False
     
 
-    chrome = ChromeAuto(numero_apostas=500, numero_jogos_por_aposta=10, is_new_game=is_new_game)
+    chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10, is_new_game=is_new_game)
+
+    if is_new_game:
+        chrome.gera_jogos_aleatorios(nome_arquivo)
+        exit()
+
+    # chrome.acessa('https://sports.sportingbet.com/pt-br/sports')        
+    #     #chrome.clica_sign_in()
+    # chrome.faz_login()  
+
+    if apenas_analisa == 1:
+        chrome.acessa('https://sports.sportingbet.com/pt-br/sports')   
+        chrome.faz_login()  
+        asyncio.run( chrome.analisa_resultados(index=index))
+
     if not is_new_game:
         chrome.acessa('https://sports.sportingbet.com/pt-br/sports')        
         #chrome.clica_sign_in()

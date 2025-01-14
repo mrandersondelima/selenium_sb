@@ -30,51 +30,47 @@ async def main():
             teste = True
             last_time_check = None
             try:
-                last_time_check = le_de_arquivo('last_time_check.txt', 'string')    
-
-                if last_time_check == 'sair':
-                    exit()
+                last_time_check = le_de_arquivo('last_time_check_2.txt', 'string')    
             except:
                 print('tentando matar o processo anterior')
                 try:
                     Popen(f"taskkill /f /pid {proc.pid}")     
-                    chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
+                    chrome_process_id = le_de_arquivo('chrome_process_id_2.txt', 'int')
                     #p = psutil.Process(chrome_process_id)
                     Popen(f"taskkill /f /pid {chrome_process_id} /t")     
                     # for p in p.children(recursive=True):
                     #     print(p.pid)
-                    #     Popen(f'taskkill /f /pid {p.pid}')        
-                    proc = None                   
+                    #     Popen(f'taskkill /f /pid {p.pid}')   
+                    proc = None                        
                 except Exception as e:
                     print(e)
             
-
             last_time_check_datetime = datetime.strptime( last_time_check, '%Y-%m-%d %H:%M' )
-
+            
 
             if not proc:
-                proc = await asyncio.create_subprocess_exec("python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py",
+                proc = await asyncio.create_subprocess_exec("python", r"D:\anderson.morais\Documents\dev\sportingbet4\app_2.py",
                                                     stdout=sys.stdout, stderr=sys.stderr)       
 
             diferenca_tempo = datetime.now() - last_time_check_datetime
 
-            if diferenca_tempo.total_seconds() >= 15 * 60:
+            if diferenca_tempo.total_seconds() >= 5 * 60:
                 print('tentando matar o processo anterior')
                 try:
                     Popen(f"taskkill /f /pid {proc.pid}")     
-                    chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
+                    chrome_process_id = le_de_arquivo('chrome_process_id_2.txt', 'int')
                     #p = psutil.Process(chrome_process_id)
                     Popen(f"taskkill /f /pid {chrome_process_id} /t")     
                     # for p in p.children(recursive=True):
                     #     print(p.pid)
-                    #     Popen(f'taskkill /f /pid {p.pid}')          
-                    proc = None                   
+                    #     Popen(f'taskkill /f /pid {p.pid}')       
+                    proc = None                    
                 except Exception as e:
                     print(e)    
 
                 sleep(10)
 
-                proc = await asyncio.create_subprocess_exec("python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py",
+                proc = await asyncio.create_subprocess_exec("python", r"D:\anderson.morais\Documents\dev\sportingbet4\app_2.py",
                                                     stdout=sys.stdout, stderr=sys.stderr)
                 # p = Popen([r"python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py"], stdout=sys.stdout, stderr=sys.stderr, bufsize=1, universal_newlines=True, stdin=PIPE)
             
@@ -84,13 +80,13 @@ async def main():
             print('tentando matar o processo anterior')
             try:
                 Popen(f"taskkill /f /pid {proc.pid}")     
-                chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
+                chrome_process_id = le_de_arquivo('chrome_process_id_2.txt', 'int')
                 #p = psutil.Process(chrome_process_id)
                 Popen(f"taskkill /f /pid {chrome_process_id} /t")     
                 # for p in p.children(recursive=True):
                 #     print(p.pid)
-                #     Popen(f'taskkill /f /pid {p.pid}')       
-                proc = None                      
+                #     Popen(f'taskkill /f /pid {p.pid}')           
+                proc = None                
             except Exception as e:
                 print(e) 
 asyncio.run(main())
