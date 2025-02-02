@@ -35,10 +35,30 @@ async def main():
 
                 if last_time_check == 'sair':
                     exit()
+                elif last_time_check == 'erro_aposta':
+                    print('tentando matar o processo anterior')
+                    try:
+                        if proc:
+                            Popen(f"taskkill /f /pid {proc.pid}")     
+                        chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
+                        #p = psutil.Process(chrome_process_id)
+                        Popen(f"taskkill /f /pid {chrome_process_id} /t")     
+                        # for p in p.children(recursive=True):
+                        #     print(p.pid)
+                        #     Popen(f'taskkill /f /pid {p.pid}')          
+                        proc = None                   
+                    except Exception as e:
+                        print(e)    
+
+                    sleep(5)
+
+                    proc = await asyncio.create_subprocess_exec("python", r""+app_path,
+                                                    stdout=sys.stdout, stderr=sys.stderr)
             except:
                 print('tentando matar o processo anterior')
                 try:
-                    Popen(f"taskkill /f /pid {proc.pid}")     
+                    if proc:
+                        Popen(f"taskkill /f /pid {proc.pid}")     
                     chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
                     #p = psutil.Process(chrome_process_id)
                     Popen(f"taskkill /f /pid {chrome_process_id} /t")     
@@ -49,6 +69,8 @@ async def main():
                 except Exception as e:
                     print(e)
             
+            if last_time_check == 'erro_aposta':
+                last_time_check = datetime.now().strftime( '%Y-%m-%d %H:%M' )
 
             last_time_check_datetime = datetime.strptime( last_time_check, '%Y-%m-%d %H:%M' )
 
@@ -62,7 +84,8 @@ async def main():
             if diferenca_tempo.total_seconds() >= 15 * 60:
                 print('tentando matar o processo anterior')
                 try:
-                    Popen(f"taskkill /f /pid {proc.pid}")     
+                    if proc:
+                        Popen(f"taskkill /f /pid {proc.pid}")     
                     chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
                     #p = psutil.Process(chrome_process_id)
                     Popen(f"taskkill /f /pid {chrome_process_id} /t")     
@@ -73,18 +96,19 @@ async def main():
                 except Exception as e:
                     print(e)    
 
-                sleep(10)
+                sleep(5)
 
                 proc = await asyncio.create_subprocess_exec("python", r""+app_path,
                                                     stdout=sys.stdout, stderr=sys.stderr)
                 # p = Popen([r"python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py"], stdout=sys.stdout, stderr=sys.stderr, bufsize=1, universal_newlines=True, stdin=PIPE)
             
             print('esperando...')
-            sleep(2 * 60)    
+            sleep(60)    
         except:
             print('tentando matar o processo anterior')
             try:
-                Popen(f"taskkill /f /pid {proc.pid}")     
+                if proc:
+                    Popen(f"taskkill /f /pid {proc.pid}")     
                 chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
                 #p = psutil.Process(chrome_process_id)
                 Popen(f"taskkill /f /pid {chrome_process_id} /t")     

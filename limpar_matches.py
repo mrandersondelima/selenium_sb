@@ -36,7 +36,7 @@ try:
         save_array_on_disk('available_indexes.json', [0,1,2,3,4,5,6,7,8,9])
 
     with open('apostas_paralelas.json', 'wb') as fp:
-        save_array_on_disk('apostas_paralelas.json', [5,5,5,5,5,5,5,5,5,5])
+        save_array_on_disk('apostas_paralelas.json', [3.5,3.5,3.5,3.5,3.5,3.5,3.5,3.5,3.5,3.5])
 
     escreve_em_arquivo('gastos.txt', '0.0', 'w')
 
