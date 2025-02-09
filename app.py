@@ -8,7 +8,6 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 from time import sleep
 import pause
-import psycopg2
 from dutching import calcula_dutching
 import time
 import json
@@ -1181,10 +1180,10 @@ Aposta {self.qt_true_bets_made}""")
         if not await self.is_logged_in():
             await self.faz_login()        
 
-        await self.le_saldo()
+        # await self.le_saldo()
         print('saldo: ', self.saldo)
 
-        self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+        # self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
 
         if self.teste:
             print('=========== MODO DE TESTE ATIVADO ============')
@@ -1371,25 +1370,20 @@ Aposta {self.qt_true_bets_made}""")
                                         print(f'Meta de ganho: R$ {self.meta_ganho:.2f}')
                                         self.escreve_em_arquivo('maior_meta_ganho.txt', f'{self.maior_meta_ganho:.2f}', 'w')                                
 
-                                texto_mensagem = "RECUPEROU"
+                                texto_mensagem = "GANHOU"
 
-                                if self.saldo > self.maior_saldo:
-                                    texto_mensagem = "GANHOU"
-                                    self.maior_saldo = self.saldo
-                                    self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w') 
+                                if self.quit_on_next_win:     
+                                    try:
+                                        #if self.saldo > self.saldo_inicio_dia:                                        
+                                        
+                                        await self.telegram_bot_erro.envia_mensagem(f'{texto_mensagem}! {self.saldo:.2f}\nSaindo...')                                      
 
-                                    if self.quit_on_next_win:     
-                                        try:
-                                            #if self.saldo > self.saldo_inicio_dia:                                        
-                                            
-                                            await self.telegram_bot_erro.envia_mensagem(f'{texto_mensagem}! {self.saldo:.2f}\nSaindo...')                                      
-
-                                        except Exception as e:
-                                            print(e)
-                                            print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')  
-                                        self.escreve_em_arquivo('last_time_check.txt', 'sair', 'w' )
-                                        self.chrome.quit()
-                                        exit() 
+                                    except Exception as e:
+                                        print(e)
+                                        print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')  
+                                    self.escreve_em_arquivo('last_time_check.txt', 'sair', 'w' )
+                                    self.chrome.quit()
+                                    exit() 
 
                                 if self.is_for_real:
 

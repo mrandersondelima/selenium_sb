@@ -47,6 +47,9 @@ async def main():
                         #     print(p.pid)
                         #     Popen(f'taskkill /f /pid {p.pid}')          
                         proc = None                   
+                    except KeyboardInterrupt:
+                        print('saindo...')
+                        exit()
                     except Exception as e:
                         print(e)    
 
@@ -66,6 +69,9 @@ async def main():
                     #     print(p.pid)
                     #     Popen(f'taskkill /f /pid {p.pid}')        
                     proc = None                   
+                except KeyboardInterrupt:
+                    print('saindo...')
+                    exit()
                 except Exception as e:
                     print(e)
             
@@ -93,6 +99,9 @@ async def main():
                     #     print(p.pid)
                     #     Popen(f'taskkill /f /pid {p.pid}')          
                     proc = None                   
+                except KeyboardInterrupt:
+                    print('saindo...')
+                    exit()
                 except Exception as e:
                     print(e)    
 
@@ -104,7 +113,10 @@ async def main():
             
             print('esperando...')
             sleep(60)    
-        except:
+        except KeyboardInterrupt:
+            print('saindo...')
+            exit()
+        except Exception as e:
             print('tentando matar o processo anterior')
             try:
                 if proc:
@@ -115,7 +127,10 @@ async def main():
                 # for p in p.children(recursive=True):
                 #     print(p.pid)
                 #     Popen(f'taskkill /f /pid {p.pid}')       
-                proc = None                      
+                proc = None       
+            except KeyboardInterrupt:
+                print('saindo...')
+                exit()
             except Exception as e:
                 print(e) 
 asyncio.run(main())

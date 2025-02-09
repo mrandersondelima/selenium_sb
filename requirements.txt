@@ -1,0 +1,6 @@
+pause
+psutil
+python-dotenv
+python-telegram-bot
+selenium
+webdriver-manager
