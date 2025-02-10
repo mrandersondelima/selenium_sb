@@ -1129,12 +1129,14 @@ Aposta {self.qt_true_bets_made}""")
             self.tempo_pausa = 90
             self.times_favoritos = []        
             self.first_message_after_bet = False
-            self.jogos_inseridos = self.read_array_from_disk('jogos_inseridos.json')
-            self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
+            # self.jogos_inseridos = self.read_array_from_disk('jogos_inseridos.json')
+            # self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
             self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
+            self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
             self.soma_odds = self.le_de_arquivo('soma_odds.txt', 'float')
             self.qt_apostas = self.le_de_arquivo('qt_apostas.txt', 'int')
-            self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
+            self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int')
+            # self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
             self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
             self.saldo = self.le_de_arquivo('saldo.txt', 'float')
             self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
@@ -1160,14 +1162,6 @@ Aposta {self.qt_true_bets_made}""")
             self.horario_ultima_checagem = datetime.now()
             self.bets_made = dict()
             self.ultima_checagem_aposta_aberta = datetime.now()
-            self.favorite_fixture = self.le_de_arquivo('favorite_fixture.txt', 'string')
-            self.first_match_to_start_date = self.le_de_arquivo('first_match_to_start_date.txt', 'string')
-            self.placar = self.le_de_arquivo('placar.txt', 'string')
-            self.periodo = self.le_de_arquivo('periodo.txt', 'string')
-            self.event_url = self.le_de_arquivo('event_url.txt', 'string')
-            self.qt_vezes_perdida_aposta_1 = self.le_de_arquivo('qt_vezes_perdida_aposta_1.txt', 'int')
-            self.qt_apostas_feitas_1 = self.le_de_arquivo('qt_apostas_feitas_1.txt', 'int')
-            self.qt_true_bets_made = self.le_de_arquivo('qt_true_bets_made.txt', 'int')
             self.fixture_id = self.le_de_arquivo('fixture_id.txt', 'string')
             self.numero_erros_global = 0
             self.maior_meta_ganho = self.le_de_arquivo('maior_meta_ganho.txt', 'float')
@@ -1285,21 +1279,6 @@ Aposta {self.qt_true_bets_made}""")
                             self.bet_slip_number = ''
                             self.escreve_em_arquivo('bet_slip_number.txt', '', 'w')
 
-                            self.favorite_fixture = ''
-                            self.escreve_em_arquivo('favorite_fixture.txt', self.favorite_fixture, 'w')
-
-                            self.event_url = ''
-                            self.escreve_em_arquivo('event_url.txt', self.event_url, 'w')
-
-                            self.placar = ''
-                            self.escreve_em_arquivo('placar.txt', self.placar, 'w')
-
-                            self.periodo = ''
-                            self.escreve_em_arquivo('periodo.txt', self.periodo, 'w')
-
-                            self.fixture_id = ''
-                            self.escreve_em_arquivo('fixture_id.txt', self.fixture_id, 'w')
-
                             # só vai modificar o valor da aposta se tivermos perdido a última aposta
                             ultimo_jogo = bet
 
@@ -1386,9 +1365,6 @@ Aposta {self.qt_true_bets_made}""")
                                     exit() 
 
                                 if self.is_for_real:
-
-                                    self.qt_true_bets_made = 0
-                                    self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')
 
                                     try:
                                         await self.telegram_bot_erro.envia_mensagem(f'{texto_mensagem}! {self.saldo:.2f}\nMeta de ganho: {self.meta_ganho:.2f}')                                      
@@ -1484,16 +1460,15 @@ Aposta {self.qt_true_bets_made}""")
                                                     option_id_over = option['id']                                                    
                                                     if match != None:
                                                         match['odd_over'] = odd_over
-                                                        match['option_id_over'] = option_id_over                                               
+                                                        match['option_id_over'] = option_id_over    
+                                                        match['odd_combinada'] = match['odd_over'] + match['odd_under'] + 4                                           
 
                                 if match != None and match.get('odd_over'):
                                     jogos_aptos.append( match )                               
 
                             except Exception as e:                                    
                                 print('erro')                                    
-                                print(e)   
-
-                        print('favorite fixture ', self.favorite_fixture)                                  
+                                print(e)                                                         
 
                         print(periodos)
 
@@ -1511,22 +1486,6 @@ Aposta {self.qt_true_bets_made}""")
 
                             self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
                             continue        
-                        # else:
-                        #     mensagem_telegram = ''
-                        #     for jogo in jogos_aptos:
-                        #         nome_evento = jogo['nome_evento']
-                        #         mensagem_telegram += f"{jogo['start_date']} - {base_url}/sports/eventos/{nome_evento}?market=3\n"
-
-                        #     try:
-                        #         await self.telegram_bot.envia_mensagem(mensagem_telegram)              
-                        #         self.jogos_inseridos.extend( list( map( lambda e: e['fixture_id'], jogos_aptos )) )
-                        #         self.save_array_on_disk('jogos_inseridos.json', self.jogos_inseridos)
-                        #     except Exception as e:
-                        #         print('não foi possível enviar mensagem o telegram')
-
-                        #     self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=10))
-                        
-                        # caso haja algum jogo no cupom a gente vai tentar limpar
                         try:
                             self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
                             sleep(1)
@@ -1536,6 +1495,8 @@ Aposta {self.qt_true_bets_made}""")
                             print(e)
 
                         self.numero_apostas_feitas = 0                                 
+
+                        jogos_aptos = list( sorted( jogos_aptos, key=lambda e: ( e['original_start_date'], -e['odd_combinada'] )))
 
                         for jogo_apto in jogos_aptos:        
 
@@ -2553,9 +2514,19 @@ Aposta {self.qt_apostas_feitas_txt}""")
         try:
             self.navigate_to(f'{base_url}/sports/eventos/{nome_evento}?market=3')
 
-            over = WebDriverWait(self.chrome, 30).until(
+            over = WebDriverWait(self.chrome, 15).until(
                 EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id_over}"]' ) ))
-            over.click()
+            
+            odd = WebDriverWait(self.chrome, 5).until(
+                EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id_over}"]/descendant::span' ) ))
+            
+            # vou tentar converter pra inteiro pra ver se o mercado está disponível
+            try:
+                int( odd.get_property('innerText'))
+            except:
+                return False
+
+            over.click()            
 
             clicou = False
             index = 0
