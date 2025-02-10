@@ -1461,7 +1461,7 @@ Aposta {self.qt_true_bets_made}""")
                                                     if match != None:
                                                         match['odd_over'] = odd_over
                                                         match['option_id_over'] = option_id_over    
-                                                        match['odd_combinada'] = match['odd_over'] + match['odd_under'] + 4                                           
+                                                        match['odd_combinada'] = match['odd_over'] + match['odd_under'] + 0.04 - 1.0                                 
 
                                 if match != None and match.get('odd_over'):
                                     jogos_aptos.append( match )                               
@@ -2522,8 +2522,9 @@ Aposta {self.qt_apostas_feitas_txt}""")
             
             # vou tentar converter pra inteiro pra ver se o mercado está disponível
             try:
-                int( odd.get_property('innerText'))
-            except:
+                float( odd.get_property('innerText'))
+            except Exception as e:
+                print(e)
                 return False
 
             over.click()            
