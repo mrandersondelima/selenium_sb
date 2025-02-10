@@ -1514,9 +1514,6 @@ Aposta {self.qt_true_bets_made}""")
 
                                 string_matches = ''
                                 
-                                self.controle_over_under += 1
-                                self.escreve_em_arquivo('controle_over_under.txt', f'{self.controle_over_under}', 'w')
-
                                 self.navigate_to(f'{base_url}/sports/minhas-apostas/em-aberto')
                                 try:
                                     expandir = WebDriverWait(self.chrome, 10).until(
@@ -1525,19 +1522,6 @@ Aposta {self.qt_true_bets_made}""")
                                 except:
                                     pass  
 
-                                nome_evento = jogo_apto['nome_evento']
-                                self.event_url = f'{base_url}/sports/eventos/{nome_evento}?market=3'
-                                self.escreve_em_arquivo('event_url.txt', self.event_url, 'w')
-
-                                self.placar = jogo_apto['score']
-                                self.escreve_em_arquivo('placar.txt', self.placar, 'w')
-
-                                self.periodo = jogo_apto['periodo']
-                                self.escreve_em_arquivo('periodo.txt', self.periodo, 'w')
-
-                                self.fixture_id = jogo_apto['fixture_id']
-                                self.escreve_em_arquivo('fixture_id.txt', jogo_apto['fixture_id'], 'w')
-
                                 self.match_started = False
                                 self.escreve_em_arquivo('match_started.txt', 'False', 'w')
 
@@ -1545,7 +1529,6 @@ Aposta {self.qt_true_bets_made}""")
                                 start_date = ( start_date - timedelta(hours=3) ).strftime("%d/%m/%Y %Hh%M")
                                 
                                 jogo_aberto = None                                       
-                                jogos_ja_inseridos.append( f"{jogo_apto['fixture_id']}{jogo_apto['periodo']}" )
                                 bet = None
 
                                 jogo_aberto = await self.get(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
@@ -1567,14 +1550,6 @@ Aposta {self.qt_true_bets_made}""")
 
                                         string_matches += f'{start_date}: {name}, {region}\n'                                        
 
-                                    self.first_match_to_start_date = self.find_first_match_to_start_date( bet )
-                                    self.escreve_em_arquivo('first_match_to_start_date.txt', self.first_match_to_start_date, 'w')
-
-                                    first_match_to_start_date_formatado = datetime.strptime( self.first_match_to_start_date, "%Y-%m-%dT%H:%M:%SZ" )
-                                    first_match_to_start_date_formatado = ( first_match_to_start_date_formatado - timedelta(hours=3) ).strftime("%d/%m/%Y %Hh%M")
-                                    
-
-
                                 self.qt_apostas_feitas_txt += 1
                                 self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')  
 
@@ -1591,12 +1566,6 @@ Aposta {self.qt_true_bets_made}""")
                                 self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w')
 
                                 if self.is_for_real:
-
-                                    self.qt_apostas_feitas_1 += 1
-                                    self.escreve_em_arquivo('qt_apostas_feitas_1.txt', f'{self.qt_apostas_feitas_1}', 'w')
-
-                                    self.qt_true_bets_made += 1
-                                    self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')
 
                                     self.perda_acumulada += self.valor_aposta
                                     self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
@@ -1620,9 +1589,6 @@ Aposta {self.qt_apostas_feitas_txt}""")
                                 self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
                                 
                                 self.is_bet_lost = False
-
-                                self.saldo_antes_aposta = self.saldo
-                                self.escreve_em_arquivo('saldo_antes_aposta.txt', f'{self.saldo:.2f}', 'w')      
 
                                 self.wait_fixture_to_start(self.first_match_to_start_date)                          
 
