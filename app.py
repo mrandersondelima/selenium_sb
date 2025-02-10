@@ -1132,6 +1132,7 @@ Aposta {self.qt_true_bets_made}""")
             # self.jogos_inseridos = self.read_array_from_disk('jogos_inseridos.json')
             # self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
             self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
+            self.first_match_to_start_date = self.le_de_arquivo('first_match_to_start_date.txt', 'string')
             self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
             self.soma_odds = self.le_de_arquivo('soma_odds.txt', 'float')
             self.qt_apostas = self.le_de_arquivo('qt_apostas.txt', 'int')
@@ -1541,12 +1542,18 @@ Aposta {self.qt_true_bets_made}""")
                                     bet = jogo_aberto['betslips'][0]       
 
                                     matches_fixture_ids = set( map( lambda e: e['fixture']['compoundId'], bet['bets'] ) )                                    
+
+                                    self.first_match_to_start_date = None
                                     
                                     for fi in matches_fixture_ids:
                                         fixture = await self.get(f"let d = await fetch('https://sports.sportingbet.bet.br/cds-api/bettingoffer/fixture-view?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&scoreboardMode=Full&fixtureIds={fi}&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                               
                                         name = fixture['fixture']['name']['value']
                                         start_date = self.formata_data( fixture['fixture']['startDate'], "%Y-%m-%dT%H:%M:%SZ" )
                                         region = fixture['fixture']['region']['name']['value']
+
+                                        if not self.first_match_to_start_date:
+                                            self.first_match_to_start_date = fixture['fixture']['startDate']
+                                            self.escreve_em_arquivo('first_match_to_start_date.txt', self.first_match_to_start_date, 'w')
 
                                         string_matches += f'{start_date}: {name}, {region}\n'                                        
 
