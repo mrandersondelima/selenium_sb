@@ -1394,7 +1394,12 @@ Aposta {self.qt_true_bets_made}""")
                     data_inicial = ( datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:00.000Z" )
                     data_final = ( datetime.now() + timedelta(hours=9) ).strftime("%Y-%m-%dT%H:%M:00.000Z" )
                     
-                    fixtures = await self.get(f"let d = await fetch('https://sports.sportingbet.bet.br/cds-api/bettingoffer/fixtures?x-bwin-accessid=YTRhMjczYjctNTBlNy00MWZlLTliMGMtMWNkOWQxMThmZTI2&lang=pt-br&country=BR&userCountry=BR&fixtureTypes=Standard&state=Latest&offerMapping=Filtered&fixtureCategories=Gridable,NonGridable,Other,Specials,Outrights&sportIds=4&regionIds=&competitionIds=&conferenceIds=&isPriceBoost=false&statisticsModes=None&skip=0&take=50&sortBy=StartDate&from={data_inicial}&to={data_final}&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                                   
+                    fixtures = await self.get(f"let d = await fetch('https://sports.sportingbet.bet.br/cds-api/bettingoffer/fixtures?x-bwin-accessid=YTRhMjczYjctNTBlNy00MWZlLTliMGMtMWNkOWQxMThmZTI2&lang=pt-br&country=BR&userCountry=BR&state=Latest&offerMapping=All&sportIds=4&skip=0&take=50&sortBy=StartDate&from={data_inicial}&to={data_final}&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                                   
+
+                    # fixture = await self.get(f"let d = await fetch('https://sports.sportingbet.bet.br/cds-api/bettingoffer/fixture-view?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&scoreboardMode=Full&fixtureIds=2:7556122&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                               
+
+                    # fixtures['fixtures'].clear()
+                    # fixtures['fixtures'].append( fixture['fixture'] )
                    
                     print('\n\n--- chamou fixtures de novo ---')
 
@@ -1426,6 +1431,9 @@ Aposta {self.qt_true_bets_made}""")
                                     continue
 
                                 nome_evento = self.formata_nome_evento( fixture['participants'][0]['name']['value'], fixture['participants'][1]['name']['value'], fixture['id'] )
+
+                                # if 'manchester' in nome_evento:
+                                #     input()
                                 
                                 fixture_id = fixture['id']
                                 name = fixture['name']['value']
@@ -1512,7 +1520,7 @@ Aposta {self.qt_true_bets_made}""")
                                 if jogo_apto['fixture_id'] not in self.jogos_inseridos:         
                                     start_date = datetime.strptime( jogo_apto['original_start_date'], "%Y-%m-%dT%H:%M:%SZ" )
                                     start_date = ( start_date - timedelta(hours=3) ).strftime("%Hh%M")              
-                                    string_matches += f"{base_url}/sports/eventos/{jogo_apto['nome_evento']}?market=3 {start_date}\n\n"
+                                    string_matches += f"{start_date} {base_url}/sports/eventos/{jogo_apto['nome_evento']}?market=3\n\n"
                             try:
                                 if string_matches != '':
                                     await self.telegram_bot.envia_mensagem(string_matches)       
