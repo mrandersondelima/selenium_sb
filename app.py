@@ -1509,8 +1509,10 @@ Aposta {self.qt_true_bets_made}""")
                         string_matches = ''
                         if self.only_messages:
                             for jogo_apto in jogos_aptos:
-                                if jogo_apto['fixture_id'] not in self.jogos_inseridos:                       
-                                    string_matches += f"{base_url}/sports/eventos/{jogo_apto['nome_evento']}?market=3\n\n"
+                                if jogo_apto['fixture_id'] not in self.jogos_inseridos:         
+                                    start_date = datetime.strptime( jogo_apto['original_start_date'], "%Y-%m-%dT%H:%M:%SZ" )
+                                    start_date = ( start_date - timedelta(hours=3) ).strftime("%Hh%M")              
+                                    string_matches += f"{base_url}/sports/eventos/{jogo_apto['nome_evento']}?market=3 {start_date}\n\n"
                             try:
                                 if string_matches != '':
                                     await self.telegram_bot.envia_mensagem(string_matches)       
