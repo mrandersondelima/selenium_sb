@@ -1512,11 +1512,12 @@ Aposta {self.qt_true_bets_made}""")
                                 if jogo_apto['fixture_id'] not in self.jogos_inseridos:                       
                                     string_matches += f"{base_url}/sports/eventos/{jogo_apto['nome_evento']}?market=3\n\n"
                             try:
-                                await self.telegram_bot.envia_mensagem(string_matches)       
-                                for jogo_apto in jogos_aptos:
-                                    if jogo_apto['fixture_id'] not in self.jogos_inseridos:                       
-                                        self.jogos_inseridos.append( jogo_apto['fixture_id'] )
-                                self.save_array_on_disk('jogos_inseridos.json', self.jogos_inseridos)
+                                if string_matches != '':
+                                    await self.telegram_bot.envia_mensagem(string_matches)       
+                                    for jogo_apto in jogos_aptos:
+                                        if jogo_apto['fixture_id'] not in self.jogos_inseridos:                       
+                                            self.jogos_inseridos.append( jogo_apto['fixture_id'] )
+                                    self.save_array_on_disk('jogos_inseridos.json', self.jogos_inseridos)
                             except Exception as e:
                                 print(e)
                                 print('Não foi possível enviar mensagem ao telegram.')
