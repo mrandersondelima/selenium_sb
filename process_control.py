@@ -23,12 +23,21 @@ def le_de_arquivo(nome_arquivo, tipo):
 
 
 async def main():
-    print('processo pai: ', os.getpid() )
-    proc = None
-    teste = 0
+    only_messages = False    
+
+    if '--help' in sys.argv:
+        print('Opções:')
+        print('-om: somente mensagens serão disparadas para o telegram')
+        exit()
+
+    if '-om' in sys.argv:
+        only_messages = True        
+
+    parameter = '-om' if only_messages else ''    
+
+    proc = None    
     while True:
         try:
-            teste = True
             last_time_check = None
             try:
                 last_time_check = le_de_arquivo('last_time_check.txt', 'string')    
@@ -55,7 +64,7 @@ async def main():
 
                     sleep(5)
 
-                    proc = await asyncio.create_subprocess_exec("python", r""+app_path,
+                    proc = await asyncio.create_subprocess_exec("python", r""+app_path, parameter,
                                                     stdout=sys.stdout, stderr=sys.stderr)
             except:
                 print('tentando matar o processo anterior')
@@ -82,7 +91,7 @@ async def main():
 
 
             if not proc:
-                proc = await asyncio.create_subprocess_exec("python", r""+app_path,
+                proc = await asyncio.create_subprocess_exec("python", r""+app_path, parameter,
                                                     stdout=sys.stdout, stderr=sys.stderr)       
 
             diferenca_tempo = datetime.now() - last_time_check_datetime
@@ -107,7 +116,7 @@ async def main():
 
                 sleep(5)
 
-                proc = await asyncio.create_subprocess_exec("python", r""+app_path,
+                proc = await asyncio.create_subprocess_exec("python", r""+app_path, parameter,
                                                     stdout=sys.stdout, stderr=sys.stderr)
                 # p = Popen([r"python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py"], stdout=sys.stdout, stderr=sys.stderr, bufsize=1, universal_newlines=True, stdin=PIPE)
             

@@ -10,6 +10,7 @@ from time import sleep
 import pause
 from dutching import calcula_dutching
 import time
+import sys
 import json
 from enum import Enum
 import re
@@ -49,6 +50,7 @@ class ChromeAuto():
         self.numero_apostas_feitas = 0
         self.inserted_fixture_ids = []
         self.bet_ids = []
+        self.only_messages = False
         self.sure_bet_made = False
         self.varios_jogos = True
         self.saldo_inicio_dia = 0.0
@@ -183,7 +185,7 @@ class ChromeAuto():
                             self.navigate_to('https://sports.sportingbet.bet.br/pt-br/sports/minhas-apostas/em-aberto')
                         else:
                             self.navigate_to(f'{base_url}/sports')                            
-                        return
+                        return True
                 except Exception as e:
                     await self.increment_global_errors()
                     print('não está logado')
@@ -290,7 +292,7 @@ class ChromeAuto():
                                 self.navigate_to('https://sports.sportingbet.bet.br/pt-br/sports/minhas-apostas/em-aberto')
                             else:
                                 self.navigate_to(f'{base_url}/sports')                                
-                            break
+                            return True
                     except:
                         await self.increment_global_errors()
                         sleep(3)
@@ -314,9 +316,11 @@ class ChromeAuto():
                     self.chrome.execute_script("var botao_fechar = document.querySelector('.ui-icon.theme-close-i.ng-star-inserted'); if (botao_fechar) { botao_fechar.click(); }")
                 except Exception as e:
                     print('Erro ao tentar fechar banner')
-
+                
+                return True
             except Exception as e:
-                print('erro aleatório')
+                print('exception no login')
+                print(e)                
                 await self.increment_global_errors()
                 tentativas += 1
                 if url_acesso == f'{base_url}/sports':
@@ -324,7 +328,7 @@ class ChromeAuto():
                 else:
                     url_acesso = f'{base_url}/sports'
                 self.navigate_to(url_acesso)                                
-                print(e)
+                
                 if tentativas == 5:
                     self.telegram_bot.envia_mensagem('SISTEMA TRAVADO NO LOGIN')
 
@@ -1129,7 +1133,7 @@ Aposta {self.qt_true_bets_made}""")
             self.tempo_pausa = 90
             self.times_favoritos = []        
             self.first_message_after_bet = False
-            # self.jogos_inseridos = self.read_array_from_disk('jogos_inseridos.json')
+            self.jogos_inseridos = self.read_array_from_disk('jogos_inseridos.json')
             # self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
             self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
             self.first_match_to_start_date = self.le_de_arquivo('first_match_to_start_date.txt', 'string')
@@ -1182,6 +1186,9 @@ Aposta {self.qt_true_bets_made}""")
 
         if self.teste:
             print('=========== MODO DE TESTE ATIVADO ============')
+
+        if self.only_messages:
+            print('=========== MODO DE APENAS MENSAGENS ATIVADO ============')
 
         try:
             self.times_favoritos = self.read_array_from_disk('times_favoritos.json')
@@ -1498,6 +1505,24 @@ Aposta {self.qt_true_bets_made}""")
                         self.numero_apostas_feitas = 0                                 
 
                         jogos_aptos = list( sorted( jogos_aptos, key=lambda e: ( e['original_start_date'], -e['odd_combinada'] )))
+
+                        string_matches = ''
+                        if self.only_messages:
+                            for jogo_apto in jogos_aptos:
+                                if jogo_apto['fixture_id'] not in self.jogos_inseridos:                       
+                                    string_matches += f"{base_url}/sports/eventos/{jogo_apto['nome_evento']}?market=3\n\n"
+                            try:
+                                await self.telegram_bot.envia_mensagem(string_matches)       
+                                for jogo_apto in jogos_aptos:
+                                    if jogo_apto['fixture_id'] not in self.jogos_inseridos:                       
+                                        self.jogos_inseridos.append( jogo_apto['fixture_id'] )
+                                self.save_array_on_disk('jogos_inseridos.json', self.jogos_inseridos)
+                            except Exception as e:
+                                print(e)
+                                print('Não foi possível enviar mensagem ao telegram.')
+                            
+                            self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
+                            continue
 
                         for jogo_apto in jogos_aptos:        
 
@@ -3097,8 +3122,12 @@ APOSTA {self.qt_apostas_feitas_txt}""")
 
 if __name__ == '__main__':
 
+    print(sys.argv)
+
     try:
         chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)
+        if '-om' in sys.argv:
+            chrome.only_messages = True
         chrome.acessa(f'{base_url}/sports')                    
         asyncio.run( chrome.geysons_strategy() )
     except Exception as e:
