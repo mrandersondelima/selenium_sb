@@ -1541,21 +1541,20 @@ Aposta {self.qt_true_bets_made}""")
 
                                     bet = jogo_aberto['betslips'][0]       
 
-                                    matches_fixture_ids = set( map( lambda e: e['fixture']['compoundId'], bet['bets'] ) )                                    
+                                    matches_fixture_ids = list( set( map( lambda e: {'compoundId': e['fixture']['compoundId'], 'startDate': e['fixture']['date'] }, bet['bets'] ) ))
 
-                                    self.first_match_to_start_date = None
+                                    matches_fixture_ids.sort( key=lambda e: e['date'] )                                   
                                     
                                     for fi in matches_fixture_ids:
                                         fixture = await self.get(f"let d = await fetch('https://sports.sportingbet.bet.br/cds-api/bettingoffer/fixture-view?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&scoreboardMode=Full&fixtureIds={fi}&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                               
                                         name = fixture['fixture']['name']['value']
                                         start_date = self.formata_data( fixture['fixture']['startDate'], "%Y-%m-%dT%H:%M:%SZ" )
-                                        region = fixture['fixture']['region']['name']['value']
+                                        region = fixture['fixture']['region']['name']['value']                                    
 
-                                        if not self.first_match_to_start_date:
-                                            self.first_match_to_start_date = fixture['fixture']['startDate']
-                                            self.escreve_em_arquivo('first_match_to_start_date.txt', self.first_match_to_start_date, 'w')
+                                        string_matches += f'{start_date}: {name}, {region}\n'                                     
 
-                                        string_matches += f'{start_date}: {name}, {region}\n'                                        
+                                    self.first_match_to_start_date = matches_fixture_ids[0]['date']
+                                    self.escreve_em_arquivo('first_match_to_start_date.txt', self.first_match_to_start_date, 'w')  
 
                                 self.qt_apostas_feitas_txt += 1
                                 self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')  
