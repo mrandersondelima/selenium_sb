@@ -205,7 +205,7 @@ class ChromeAuto():
                         print(e)
                         self.numero_erros_global += 1
                     vezes_fechar_banner += 1
-                    sleep(1)
+                    sleep(0.5)
 
                 # self.chrome.switch_to.default_content()
                 if url_acesso == f'{base_url}/sports':
@@ -259,11 +259,11 @@ class ChromeAuto():
 
                 print('achou campo senha')
 
-                # remember_me = WebDriverWait(self.chrome, 10).until(
-                #     EC.element_to_be_clickable((By.ID, 'rememberMe' )  ))
-                # remember_me.click()
+                remember_me = WebDriverWait(self.chrome, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'label[for="rememberMe"]' )  ))              
+                remember_me.click()
 
-                # print('clicou no remember me')
+                print('clicou no remember me')
 
                 sleep(1)
 
@@ -283,17 +283,15 @@ class ChromeAuto():
 
                 while count < 5:
                     try:
-                         # aqui vou tentar buscar algo da API pra ver se logou de verdade
+                        # aqui vou tentar buscar algo da API pra ver se logou de verdade
                         jogos_abertos = self.chrome.execute_script(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
                         if not jogos_abertos['summary']['hasError']:
                             print('logou com sucesso')
-                            self.numero_erros_global = 0
-                            if self.event_url != '':
-                                self.navigate_to('https://sports.sportingbet.bet.br/pt-br/sports/minhas-apostas/em-aberto')
-                            else:
-                                self.navigate_to(f'{base_url}/sports')                                
+                            self.numero_erros_global = 0                            
+                            self.navigate_to('https://sports.sportingbet.bet.br/pt-br/sports/minhas-apostas/em-aberto')                            
                             return True
-                    except:
+                    except Exception as e:
+                        print(e)
                         await self.increment_global_errors()
                         sleep(3)
                         count += 1
