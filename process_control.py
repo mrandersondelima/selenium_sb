@@ -119,9 +119,8 @@ async def main():
                 proc = await asyncio.create_subprocess_exec("python", r""+app_path, parameter,
                                                     stdout=sys.stdout, stderr=sys.stderr)
                 # p = Popen([r"python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py"], stdout=sys.stdout, stderr=sys.stderr, bufsize=1, universal_newlines=True, stdin=PIPE)
-            
-            print('esperando...')
-            sleep(60)    
+        
+            sleep(10)
         except KeyboardInterrupt:
             print('saindo...')
             exit()

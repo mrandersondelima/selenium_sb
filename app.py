@@ -1104,7 +1104,10 @@ Aposta {self.qt_true_bets_made}""")
                 print(e)
                 await self.testa_sessao()
 
-    def wait_for_next_fixture_search(self, date):
+    async def wait_for_next_fixture_search(self, date):
+
+        if not await self.is_logged_in():
+            await self.faz_login()   
 
         while datetime.now() < date:
             print('Esperando tempo para próxima busca...')
@@ -1416,7 +1419,7 @@ Aposta {self.qt_true_bets_made}""")
                                 print(e)
                                 print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')
                          
-                        self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
+                        await self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
                     else:
                         periodos = set()
                         jogos_aptos.clear()
@@ -1498,7 +1501,7 @@ Aposta {self.qt_true_bets_made}""")
                                     print(e)
                                     print('Não foi possível enviar mensagem ao telegram.')
 
-                            self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
+                            await self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
                             continue        
                         try:
                             self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
@@ -1530,7 +1533,7 @@ Aposta {self.qt_true_bets_made}""")
                                 print(e)
                                 print('Não foi possível enviar mensagem ao telegram.')
                             
-                            self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
+                            await self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
                             continue
 
                         first_match_to_start = jogos_aptos[0]['original_start_date']
@@ -1539,7 +1542,7 @@ Aposta {self.qt_true_bets_made}""")
 
                         if first_match_to_start - datetime.now() > timedelta(minutes=6):
                             print(f'procurando jogos até { self.formata_data( jogos_aptos[0]['original_start_date'], "%Y-%m-%dT%H:%M:%SZ" ) }')
-                            self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
+                            await self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
                             continue
 
                         for jogo_apto in jogos_aptos:        
