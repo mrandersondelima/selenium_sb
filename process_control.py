@@ -21,9 +21,13 @@ def le_de_arquivo(nome_arquivo, tipo):
         elif tipo == 'string':
             return f.read()
 
+def escreve_em_arquivo(nome_arquivo, valor, tipo_escrita):
+    with open(nome_arquivo, tipo_escrita) as f:
+        f.write(valor)
 
 async def main():
     only_messages = False    
+    first_time = True
 
     if '--help' in sys.argv:
         print('Opções:')
@@ -33,13 +37,13 @@ async def main():
     if '-om' in sys.argv:
         only_messages = True        
 
-    parameter = '-om' if only_messages else ''    
+    parameter = '-om' if only_messages else ''           
 
     proc = None    
     while True:
-        try:
+        try:            
             last_time_check = None
-            try:
+            try:            
                 last_time_check = le_de_arquivo('last_time_check.txt', 'string')    
 
                 if last_time_check == 'sair':
@@ -86,6 +90,7 @@ async def main():
             
             if last_time_check == 'erro_aposta':
                 last_time_check = datetime.now().strftime( '%Y-%m-%d %H:%M' )
+                escreve_em_arquivo('last_time_check.txt', last_time_check, 'w')
 
             last_time_check_datetime = datetime.strptime( last_time_check, '%Y-%m-%d %H:%M' )
 
@@ -121,6 +126,7 @@ async def main():
                 # p = Popen([r"python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py"], stdout=sys.stdout, stderr=sys.stderr, bufsize=1, universal_newlines=True, stdin=PIPE)
         
             sleep(10)
+            first_time = False
         except KeyboardInterrupt:
             print('saindo...')
             exit()
