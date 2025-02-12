@@ -1538,6 +1538,7 @@ Aposta {self.qt_true_bets_made}""")
                         first_match_to_start = first_match_to_start - timedelta(hours=3)
 
                         if first_match_to_start - datetime.now() > timedelta(minutes=5):
+                            print(f'procurando jogos até { self.formata_data( jogos_aptos[0]['original_start_date'], "%Y-%m-%dT%H:%M:%SZ" ) }')
                             self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
                             continue
 
