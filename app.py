@@ -1533,19 +1533,22 @@ Aposta {self.qt_true_bets_made}""")
                             continue
 
                         first_match_to_start = jogos_aptos[0]['original_start_date']
+
+                        horario_jogo = self.formata_data( jogos_aptos[0]['original_start_date'], "%Y-%m-%dT%H:%M:%SZ" )
+                        
+                        if first_match_to_start != self.first_match_to_start_date:
+                            self.first_match_to_start_date = first_match_to_start
+                            self.escreve_em_arquivo('first_match_to_start_date.txt', self.first_match_to_start_date, 'w')
+                            try:
+                                await self.telegram_bot.envia_mensagem(f'Procurando jogos até { horario_jogo }')
+                            except Exception as e:
+                                print(e)
+
                         first_match_to_start = datetime.strptime( first_match_to_start, "%Y-%m-%dT%H:%M:%SZ" )
                         first_match_to_start = first_match_to_start - timedelta(hours=3)
 
-                        if first_match_to_start - datetime.now() > timedelta(minutes=6):
-                            horario_jogo = self.formata_data( jogos_aptos[0]['original_start_date'], "%Y-%m-%dT%H:%M:%SZ" )
-                            print(f'procurando jogos até { horario_jogo }')
-                            if first_match_to_start != self.first_match_to_start_date:
-                                self.first_match_to_start_date = first_match_to_start
-                                self.escreve_em_arquivo('first_match_to_start_date.txt', self.first_match_to_start_date, 'w')
-                                try:
-                                    await self.telegram_bot.envia_mensagem(f'Procurando jogos até { horario_jogo }')
-                                except Exception as e:
-                                    print(e)
+                        if first_match_to_start - datetime.now() > timedelta(minutes=6):   
+                            print(f'procurando jogos até { horario_jogo }')                         
                             await self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
                             continue
 
