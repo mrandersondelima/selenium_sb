@@ -1109,6 +1109,8 @@ Aposta {self.qt_true_bets_made}""")
         if not await self.is_logged_in():
             await self.faz_login()   
 
+        self.chrome.refresh()
+
         while datetime.now() < date:
             print('Esperando tempo para próxima busca...')
             self.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
