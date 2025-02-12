@@ -2677,7 +2677,7 @@ Aposta {self.qt_apostas_feitas_txt}""")
             try:                
                 jogos_abertos = self.chrome.execute_script(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
                 if not jogos_abertos['summary']['hasError']:
-                    print('logou com sucesso')
+                    print('Está logado.')
                     return True                
             except:                
                 pass
