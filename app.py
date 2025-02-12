@@ -393,7 +393,7 @@ class ChromeAuto():
             sleep(0.2)
             
 
-            botao_fechar = WebDriverWait(self.chrome, 60).until(
+            botao_fechar = WebDriverWait(self.chrome, 30).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, '.betslip-result-actions.ng-star-inserted button' ) ))                 
             botao_fechar.click() 
 
