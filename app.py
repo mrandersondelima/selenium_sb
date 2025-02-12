@@ -1577,19 +1577,20 @@ Aposta {self.qt_true_bets_made}""")
 
                                     bet = jogo_aberto['betslips'][0]       
 
-                                    matches_fixture_ids = list( set( map( lambda e: {'compoundId': e['fixture']['compoundId'], 'startDate': e['fixture']['date'] }, bet['bets'] ) ))
+                                    matches_fixture_ids = list( set( map( lambda e: e['fixture']['date'] + '%' + e['fixture']['compoundId'], bet['bets'] ) ))
 
-                                    matches_fixture_ids.sort( key=lambda e: e['date'] )                                   
+                                    matches_fixture_ids.sort()                                   
                                     
                                     for fi in matches_fixture_ids:
-                                        fixture = await self.get(f"let d = await fetch('https://sports.sportingbet.bet.br/cds-api/bettingoffer/fixture-view?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&scoreboardMode=Full&fixtureIds={fi}&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                               
+                                        fixture_id = fi.split('%')[1]
+                                        fixture = await self.get(f"let d = await fetch('https://sports.sportingbet.bet.br/cds-api/bettingoffer/fixture-view?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&scoreboardMode=Full&fixtureIds={fixture_id}&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                               
                                         name = fixture['fixture']['name']['value']
                                         start_date = self.formata_data( fixture['fixture']['startDate'], "%Y-%m-%dT%H:%M:%SZ" )
                                         region = fixture['fixture']['region']['name']['value']                                    
 
                                         string_matches += f'{start_date}: {name}, {region}\n'                                     
 
-                                    self.first_match_to_start_date = matches_fixture_ids[0]['date']
+                                    self.first_match_to_start_date = matches_fixture_ids[0].split('%')[0]
                                     self.escreve_em_arquivo('first_match_to_start_date.txt', self.first_match_to_start_date, 'w')  
 
                                 self.qt_apostas_feitas_txt += 1
@@ -2456,6 +2457,8 @@ Aposta {self.qt_apostas_feitas_txt}""")
             print(e)
             print('não consegui pegar a odd do sumário')
             raise Exception('Erro ao capturar odd')
+        
+        sleep(1)
         
         if cota == None:
             raise Exception('Odds diferem')        
