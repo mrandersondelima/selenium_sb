@@ -1547,11 +1547,6 @@ Aposta {self.qt_true_bets_made}""")
                         first_match_to_start = datetime.strptime( first_match_to_start, "%Y-%m-%dT%H:%M:%SZ" )
                         first_match_to_start = first_match_to_start - timedelta(hours=3)
 
-                        if first_match_to_start - datetime.now() > timedelta(minutes=6):   
-                            print(f'procurando jogos até { horario_jogo }')                         
-                            await self.wait_for_next_fixture_search(datetime.now() + timedelta(minutes=5))
-                            continue
-
                         for jogo_apto in jogos_aptos:        
 
                             print( jogo_apto )                     
