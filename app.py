@@ -1132,6 +1132,8 @@ Aposta {self.qt_true_bets_made}""")
     
     async def geysons_strategy(self):
 
+        self.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
+
         try:
             self.tempo_pausa = 90
             self.times_favoritos = []        

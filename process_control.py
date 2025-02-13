@@ -125,7 +125,7 @@ async def main():
                                                     stdout=sys.stdout, stderr=sys.stderr)
                 # p = Popen([r"python", r"D:\anderson.morais\Documents\dev\sportingbet4\app.py"], stdout=sys.stdout, stderr=sys.stderr, bufsize=1, universal_newlines=True, stdin=PIPE)
         
-            sleep(10)
+            sleep(20)
             first_time = False
         except KeyboardInterrupt:
             print('saindo...')
