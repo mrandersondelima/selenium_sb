@@ -1132,8 +1132,6 @@ Aposta {self.qt_true_bets_made}""")
     
     async def geysons_strategy(self):
 
-        self.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
-
         try:
             self.tempo_pausa = 90
             self.times_favoritos = []        
@@ -3161,6 +3159,7 @@ if __name__ == '__main__':
         chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)
         if '-om' in sys.argv:
             chrome.only_messages = True
+        chrome.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
         chrome.acessa(f'{base_url}/sports')                    
         asyncio.run( chrome.geysons_strategy() )
     except Exception as e:
