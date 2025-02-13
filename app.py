@@ -1538,11 +1538,7 @@ Aposta {self.qt_true_bets_made}""")
                         
                         if first_match_to_start != self.first_match_to_start_date:
                             self.first_match_to_start_date = first_match_to_start
-                            self.escreve_em_arquivo('first_match_to_start_date.txt', self.first_match_to_start_date, 'w')
-                            try:
-                                await self.telegram_bot.envia_mensagem(f'Procurando jogos até { horario_jogo }')
-                            except Exception as e:
-                                print(e)
+                            self.escreve_em_arquivo('first_match_to_start_date.txt', self.first_match_to_start_date, 'w')                            
 
                         first_match_to_start = datetime.strptime( first_match_to_start, "%Y-%m-%dT%H:%M:%SZ" )
                         first_match_to_start = first_match_to_start - timedelta(hours=3)
