@@ -1350,7 +1350,8 @@ Aposta {self.qt_true_bets_made}""")
                                 self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')          
 
                                 if self.meta_progressiva and self.is_for_real:
-                                    self.meta_ganho = self.saldo * self.fator_multiplicador                              
+                                    self.meta_ganho = self.saldo * self.fator_multiplicador  
+                                    self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                            
 
                                 texto_mensagem = "GANHOU"
 
