@@ -1358,7 +1358,7 @@ Aposta {self.qt_true_bets_made}""")
                                 week_day = datetime.now().weekday()
                                 hour = datetime.now().hour
 
-                                if week_day == 6 and hour >= 18 or week_day in [0, 1]:
+                                if week_day == 6 and hour >= 17 or week_day in [0, 1]:
                                     self.quit_on_next_win = True
 
                                 if self.quit_on_next_win:     
