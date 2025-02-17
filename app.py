@@ -1150,7 +1150,7 @@ Aposta {self.qt_true_bets_made}""")
             self.meta_progressiva = True
             self.fator_multiplicador = 0.002789
             self.quit_on_next_win = False
-            self.teste = False
+            self.teste = True
             self.numero_combinadas = 3
             self.limite_inferior = 2.8
             self.only_favorites = False
@@ -1358,7 +1358,7 @@ Aposta {self.qt_true_bets_made}""")
                                 week_day = datetime.now().weekday()
                                 hour = datetime.now().hour
 
-                                if week_day == 6 and hour >= 17 or week_day in [0, 1]:
+                                if ( week_day == 6 and hour >= 17 or week_day in [0, 1] ) and self.teste == False:
                                     self.quit_on_next_win = True
 
                                 if self.quit_on_next_win:     
