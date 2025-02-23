@@ -1133,7 +1133,13 @@ Aposta {self.qt_true_bets_made}""")
             botao = WebDriverWait(self.chrome, 5).until(EC.element_to_be_clickable((By.XPATH, "//*[normalize-space(text()) = 'Continuar na Sessão']")))
             botao.click()
         except:
-            print('não achou continuar na sessão')            
+            print('não achou continuar na sessão')         
+
+    def print_info(self):
+        print(f"Meta de ganho: {self.meta_ganho:.2f}")
+        print(f"Quantidade de apostas feitas: {self.qt_apostas_feitas_txt}")
+        print(f"Perda acumulada: {self.perda_acumulada:.2f}")
+        print(f"Saldo: {self.saldo:.2f}")
     
     async def geysons_strategy(self):
 
@@ -1157,7 +1163,7 @@ Aposta {self.qt_true_bets_made}""")
             self.meta_progressiva = True
             self.fator_multiplicador = 0.05364
             self.quit_on_next_win = False
-            self.teste = True
+            self.teste = False
             self.numero_combinadas = 3
             self.limite_inferior = 2.8
             self.only_favorites = False
@@ -1180,15 +1186,13 @@ Aposta {self.qt_true_bets_made}""")
             self.maior_meta_ganho = self.le_de_arquivo('maior_meta_ganho.txt', 'float')
             numeros_jogos_filtrados = 0
             self.match_started = self.le_de_arquivo('match_started.txt', 'boolean')
-            self.primeiro_alerta_sem_jogos_ao_vivo = True
+            self.primeiro_alerta_sem_jogos_ao_vivo = True            
+            self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')            
         except:
             print('erro ao ler algum arquivo')
 
         if not await self.is_logged_in():
             await self.faz_login()        
-
-        # await self.le_saldo()
-        print('saldo: ', self.saldo)
 
         # self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
 
@@ -1197,6 +1201,8 @@ Aposta {self.qt_true_bets_made}""")
 
         if self.only_messages:
             print('=========== MODO DE APENAS MENSAGENS ATIVADO ============')
+
+        self.print_info()
 
         try:
             self.times_favoritos = self.read_array_from_disk('times_favoritos.json')
@@ -1218,9 +1224,7 @@ Aposta {self.qt_true_bets_made}""")
                 fixture_id_to_betslip = pickle.load(fp)
         except:
             print('erro ao ler arquivo')
-        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
-        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
-        self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int')        
+               
 
         if self.meta_ganho == 0:
             self.meta_ganho = self.saldo * self.fator_multiplicador
@@ -1628,28 +1632,26 @@ Aposta {self.qt_true_bets_made}""")
                                 self.gastos += self.valor_aposta
                                 self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w')
 
-                                if self.is_for_real:
+                                self.perda_acumulada += self.valor_aposta
+                                self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
 
-                                    self.perda_acumulada += self.valor_aposta
-                                    self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+                                self.primeiro_alerta_depois_do_jogo = True
+                                self.primeiro_alerta_sem_jogos_elegiveis = True   
+                                self.primeiro_alerta_sem_jogos_ao_vivo = True
 
-                                    self.primeiro_alerta_depois_do_jogo = True
-                                    self.primeiro_alerta_sem_jogos_elegiveis = True   
-                                    self.primeiro_alerta_sem_jogos_ao_vivo = True
+                                self.saldo -= self.valor_aposta
+                                self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
 
-                                    self.saldo -= self.valor_aposta
-                                    self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
-
-                                    try:
-                                        await self.telegram_bot.envia_mensagem(f"""{string_matches}
+                                try:
+                                    await self.telegram_bot.envia_mensagem(f"""{string_matches}
 Valor da aposta: R$ {self.valor_aposta:.2f}
 Saldo: R$ {self.saldo:.2f}
 Aposta {self.qt_apostas_feitas_txt}""")                             
-                                    except Exception as e:
-                                        print(e)
-                                        print('Não foi possível enviar mensagem ao telegram.')
+                                except Exception as e:
+                                    print(e)
+                                    print('Não foi possível enviar mensagem ao telegram.')
 
-                                    self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")                                                          
+                                self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")                                                          
                                 
                                 self.is_bet_lost = False
 

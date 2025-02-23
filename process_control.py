@@ -47,7 +47,7 @@ async def main():
                 last_time_check = le_de_arquivo('last_time_check.txt', 'string')    
 
                 if last_time_check == 'sair':
-                    exit()
+                    sys.exit()
                 elif last_time_check == 'erro_aposta':
                     print('tentando matar o processo anterior')
                     try:
@@ -70,7 +70,8 @@ async def main():
 
                     proc = await asyncio.create_subprocess_exec("python", r""+app_path, parameter,
                                                     stdout=sys.stdout, stderr=sys.stderr)
-            except:
+            except Exception as e:
+                print(e)
                 print('tentando matar o processo anterior')
                 try:
                     if proc:
