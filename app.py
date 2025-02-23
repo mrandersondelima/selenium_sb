@@ -1128,6 +1128,13 @@ Aposta {self.qt_true_bets_made}""")
     def formata_data(self, date, pattern):        
         return ( datetime.strptime( date, pattern ) - timedelta(hours=3) ).strftime("%d/%m/%Y %Hh%M")
     
+    def continuar_na_sessao_click(self):
+        try:
+            botao = WebDriverWait(self.chrome, 5).until(EC.element_to_be_clickable((By.XPATH, "//*[normalize-space(text()) = 'Continuar na Sessão']")))
+            botao.click()
+        except:
+            print('não achou continuar na sessão')            
+    
     async def geysons_strategy(self):
 
         try:
@@ -1148,7 +1155,7 @@ Aposta {self.qt_true_bets_made}""")
             self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
             self.varios_jogos = False        
             self.meta_progressiva = True
-            self.fator_multiplicador = 0.002789
+            self.fator_multiplicador = 0.05364
             self.quit_on_next_win = False
             self.teste = True
             self.numero_combinadas = 3
@@ -1236,6 +1243,8 @@ Aposta {self.qt_true_bets_made}""")
             deu_erro = False
             fixtures = None
             bet = None
+
+            self.continuar_na_sessao_click()
 
             self.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
 
@@ -1374,24 +1383,22 @@ Aposta {self.qt_true_bets_made}""")
                                     self.chrome.quit()
                                     exit() 
 
-                                if self.is_for_real:
-
-                                    try:
-                                        await self.telegram_bot_erro.envia_mensagem(f'{texto_mensagem}! {self.saldo:.2f}\nMeta de ganho: {self.meta_ganho:.2f}')                                      
-                                    except Exception as e:
-                                        print(e)
-                                        print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')                      
+                                
+                                try:
+                                    await self.telegram_bot_erro.envia_mensagem(f'{texto_mensagem}! {self.saldo:.2f}\nMeta de ganho: {self.meta_ganho:.2f}')                                      
+                                except Exception as e:
+                                    print(e)
+                                    print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')                      
 
                                 self.qt_apostas_feitas_txt = 0
                                 self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w') 
      
-                            elif ultimo_jogo['state'] == 'Lost':
-                                if self.is_for_real:
-                                    try:
-                                        await self.telegram_bot_erro.envia_mensagem('Perdeu.')                                                                         
-                                    except Exception as e:
-                                        print(e)
-                                        print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')                                                                              
+                            elif ultimo_jogo['state'] == 'Lost':                                
+                                try:
+                                    await self.telegram_bot_erro.envia_mensagem('Perdeu.')                                                                         
+                                except Exception as e:
+                                    print(e)
+                                    print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')                                                                              
 
                     data_inicial = ( datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:00.000Z" )
                     data_final = ( datetime.now() + timedelta(hours=9) ).strftime("%Y-%m-%dT%H:%M:00.000Z" )
@@ -1630,6 +1637,9 @@ Aposta {self.qt_true_bets_made}""")
                                     self.primeiro_alerta_sem_jogos_elegiveis = True   
                                     self.primeiro_alerta_sem_jogos_ao_vivo = True
 
+                                    self.saldo -= self.valor_aposta
+                                    self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+
                                     try:
                                         await self.telegram_bot.envia_mensagem(f"""{string_matches}
 Valor da aposta: R$ {self.valor_aposta:.2f}
@@ -1640,9 +1650,6 @@ Aposta {self.qt_apostas_feitas_txt}""")
                                         print('Não foi possível enviar mensagem ao telegram.')
 
                                     self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")                                                          
-
-                                self.saldo -= self.valor_aposta
-                                self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
                                 
                                 self.is_bet_lost = False
 
@@ -2510,11 +2517,11 @@ Aposta {self.qt_apostas_feitas_txt}""")
 
         print(f'cota: {cota}\nvalor_aposta: {self.valor_aposta}')
 
-        # if self.qt_apostas_feitas_txt in [0, 1, 2]:
-        self.is_for_real = True
-        # else:
-        #     self.is_for_real = False
-        #     self.valor_aposta = 0.1
+        if self.qt_apostas_feitas_txt >= 3:
+            self.is_for_real = True
+        else:
+             self.is_for_real = False
+             self.valor_aposta = 0.1
 
         # if self.qt_apostas_feitas_txt in [3,4]:
         #     self.is_for_real = True   
