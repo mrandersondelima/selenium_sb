@@ -47,7 +47,7 @@ async def main():
                 last_time_check = le_de_arquivo('last_time_check.txt', 'string')    
 
                 if last_time_check == 'sair':
-                    sys.exit()
+                    exit()
                 elif last_time_check == 'erro_aposta':
                     print('tentando matar o processo anterior')
                     try:

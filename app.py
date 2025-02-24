@@ -162,6 +162,19 @@ class ChromeAuto():
                 await self.testa_sessao()
                 sleep(1)
 
+    def faz_logout(self):
+        print('fazendo logout')
+
+        try:
+            WebDriverWait(self.chrome, 5).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'vn-h-avatar-balance' ))).click()
+            
+            WebDriverWait(self.chrome, 5).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'vn-am-logout' ))).click()
+        except Exception as e:
+            print(e)
+            print('Erro ao fazer logout')
+
     async def faz_login(self):
         print('faz login')
 
@@ -1163,7 +1176,7 @@ Aposta {self.qt_true_bets_made}""")
             self.meta_progressiva = True
             self.fator_multiplicador = 0.05364
             self.quit_on_next_win = False
-            self.teste = False
+            self.teste = True
             self.numero_combinadas = 3
             self.limite_inferior = 2.8
             self.only_favorites = False
@@ -1660,6 +1673,7 @@ Aposta {self.qt_apostas_feitas_txt}""")
                                 if not self.varios_jogos:
                                     break
                             elif not bet_made and not self.varios_jogos:
+                                self.faz_logout()
                                 self.numero_apostas_feitas = 0
                                 self.escreve_em_arquivo('last_time_check.txt', 'erro_aposta', 'w' )
                                 self.chrome.quit()
