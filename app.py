@@ -127,6 +127,7 @@ class ChromeAuto():
                 self.options.page_load_strategy = 'eager'
                 # self.options.add_argument('--disk-cache-size')                
                 self.options.add_argument(f"user-data-dir={user_data_dir}")    
+                
                 self.chrome = webdriver.Chrome( service=ChromeService(executable_path=self.driver_path), options=self.options)
                 # definimos quanto um script vai esperar pela resposta
                 self.chrome.get(site)
@@ -168,6 +169,8 @@ class ChromeAuto():
         try:
             WebDriverWait(self.chrome, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'vn-h-avatar-balance' ))).click()
+            
+            sleep(1)
             
             WebDriverWait(self.chrome, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'vn-am-logout' ))).click()
@@ -1673,7 +1676,17 @@ Aposta {self.qt_apostas_feitas_txt}""")
                                 if not self.varios_jogos:
                                     break
                             elif not bet_made and not self.varios_jogos:
+                                try:
+                                    WebDriverWait(self.chrome, 5).until(
+                                        EC.element_to_be_clickable((By.CSS_SELECTOR, "div.geo-comply-button button") )).click()
+                                except Exception as e:
+                                    print(e)
+
+                                sleep(1)
+
                                 self.faz_logout()
+
+                                sleep(1)
                                 self.numero_apostas_feitas = 0
                                 self.escreve_em_arquivo('last_time_check.txt', 'erro_aposta', 'w' )
                                 self.chrome.quit()
