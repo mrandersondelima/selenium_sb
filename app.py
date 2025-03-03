@@ -1134,6 +1134,7 @@ Aposta {self.qt_true_bets_made}""")
         # 2024-12-26T20:00:00Z
         date = datetime.strptime( start_date, "%Y-%m-%dT%H:%M:%SZ" )
         while datetime.now() + timedelta(hours=3) < date:
+            self.continuar_na_sessao_click(self)
             print('Esperando partida iniciar.')
             self.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
             sleep(5 * 60 )
