@@ -545,49 +545,54 @@ class ChromeAuto():
 
     async def busca_odds_fim_jogo_sem_gol(self):
 
-        self.tempo_pausa = 90
-        self.times_favoritos = []        
-        self.first_message_after_bet = False
-        self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
-        self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
-        self.soma_odds = self.le_de_arquivo('soma_odds.txt', 'float')
-        self.qt_apostas = self.le_de_arquivo('qt_apostas.txt', 'int')
-        self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
-        self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
-        self.saldo = self.le_de_arquivo('saldo.txt', 'float')
-        self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
-        self.varios_jogos = False        
-        self.meta_progressiva = True
-        self.fator_multiplicador = 0.00138
-        self.quit_on_next_win = False
-        self.teste = False
-        self.limite_inferior = 2.8
-        self.only_favorites = False
-        self.odd_de_corte = 1.5
-        self.odd_inferior_para_apostar = 1.5
-        self.odd_superior_para_apostar = 1.65
-        self.tolerancia_perdas = 6
-        self.usar_tolerancia_perdas = False
-        self.controle_over_under = self.le_de_arquivo('controle_over_under.txt', 'int')        
-        self.only_men_professional = False
-        self.is_for_real = self.le_de_arquivo('is_for_real.txt', 'boolean')
-        self.gastos = self.le_de_arquivo('gastos.txt', 'float')
-        self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
-        self.market_name = None
-        self.horario_ultima_checagem = datetime.now()
-        self.bets_made = dict()
-        self.ultima_checagem_aposta_aberta = datetime.now()
-        self.favorite_fixture = self.le_de_arquivo('favorite_fixture.txt', 'string')
-        self.placar = self.le_de_arquivo('placar.txt', 'string')
-        self.periodo = self.le_de_arquivo('periodo.txt', 'string')
-        self.event_url = self.le_de_arquivo('event_url.txt', 'string')
-        self.qt_vezes_perdida_aposta_1 = self.le_de_arquivo('qt_vezes_perdida_aposta_1.txt', 'int')
-        self.qt_apostas_feitas_1 = self.le_de_arquivo('qt_apostas_feitas_1.txt', 'int')
-        self.qt_true_bets_made = self.le_de_arquivo('qt_true_bets_made.txt', 'int')
-        self.numero_erros_global = 0
-        self.maior_meta_ganho = self.le_de_arquivo('maior_meta_ganho.txt', 'float')
-        self.primeiro_alerta_sem_jogos_ao_vivo = True
-        numeros_jogos_filtrados = 0
+        try:
+            self.numeros_erros_ao_apostar = 0
+            self.tempo_pausa = 90
+            self.times_favoritos = []        
+            self.first_message_after_bet = False
+            self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
+            self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
+            self.soma_odds = self.le_de_arquivo('soma_odds.txt', 'float')
+            self.qt_apostas = self.le_de_arquivo('qt_apostas.txt', 'int')
+            self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
+            self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
+            self.saldo = self.le_de_arquivo('saldo.txt', 'float')
+            self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
+            self.varios_jogos = False        
+            self.meta_progressiva = True
+            self.fator_multiplicador = 0.00138
+            self.quit_on_next_win = False
+            self.teste = True
+            self.limite_inferior = 2.8
+            self.only_favorites = False
+            self.odd_de_corte = 1.5
+            self.odd_inferior_para_apostar = 1.5
+            self.odd_superior_para_apostar = 1.65
+            self.tolerancia_perdas = 6
+            self.usar_tolerancia_perdas = False
+            self.controle_over_under = self.le_de_arquivo('controle_over_under.txt', 'int')        
+            self.only_men_professional = False
+            self.is_for_real = self.le_de_arquivo('is_for_real.txt', 'boolean')
+            self.gastos = self.le_de_arquivo('gastos.txt', 'float')
+            self.ganhos = self.le_de_arquivo('ganhos.txt', 'float')
+            self.market_name = None
+            self.horario_ultima_checagem = datetime.now()
+            self.bets_made = dict()
+            self.ultima_checagem_aposta_aberta = datetime.now()
+            self.favorite_fixture = self.le_de_arquivo('favorite_fixture.txt', 'string')
+            self.placar = self.le_de_arquivo('placar.txt', 'string')
+            self.periodo = self.le_de_arquivo('periodo.txt', 'string')
+            self.event_url = self.le_de_arquivo('event_url.txt', 'string')
+            self.qt_vezes_perdida_aposta_1 = self.le_de_arquivo('qt_vezes_perdida_aposta_1.txt', 'int')
+            self.qt_apostas_feitas_1 = self.le_de_arquivo('qt_apostas_feitas_1.txt', 'int')
+            self.qt_true_bets_made = self.le_de_arquivo('qt_true_bets_made.txt', 'int')
+            self.numero_erros_global = 0
+            self.maior_meta_ganho = self.le_de_arquivo('maior_meta_ganho.txt', 'float')
+            self.primeiro_alerta_sem_jogos_ao_vivo = True
+            numeros_jogos_filtrados = 0
+        except Exception as e:
+            print(e)
+            print('erro ao ler algum arquivo')
 
         if not await self.is_logged_in():
             await self.faz_login()        
@@ -712,6 +717,7 @@ class ChromeAuto():
                             self.chrome.refresh()                     
                             continue
                     else:
+                        self.continuar_na_sessao_click()
                         print('Há apostas em aberto...')
                         print( datetime.now() )
                         sleep( 10 )                            
@@ -720,142 +726,133 @@ class ChromeAuto():
                 try:                                     
                     if not self.ja_conferiu_resultado and not self.varios_jogos and bet != None and bet['state'] != 'Open':                                                        
 
-                        if not self.aposta_mesmo_jogo:
-                            print('Conferindo resultado da última aposta.')
-                            self.ja_conferiu_resultado = True
-                            self.escreve_em_arquivo('ja_conferiu_resultado.txt', 'True', 'w')    
-                            # primeiro verificamos se a última aposta foi vitoriosa                                                    
-                            self.bet_slip_number = ''
-                            self.escreve_em_arquivo('bet_slip_number.txt', '', 'w')
+                        mensagem_telegram = 'Perdeu.'
+                        
+                        print('Conferindo resultado da última aposta.')
+                        self.ja_conferiu_resultado = True
+                        self.escreve_em_arquivo('ja_conferiu_resultado.txt', 'True', 'w')    
+                        # primeiro verificamos se a última aposta foi vitoriosa                                                    
+                        self.bet_slip_number = ''
+                        self.escreve_em_arquivo('bet_slip_number.txt', '', 'w')
 
-                            if self.usar_tolerancia_perdas and self.qt_apostas_feitas_txt % self.tolerancia_perdas == 0 and self.qt_apostas_feitas_txt != 0:
-                                self.perda_acumulada = 0.0
-                                self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+                        if self.usar_tolerancia_perdas and self.qt_apostas_feitas_txt % self.tolerancia_perdas == 0 and self.qt_apostas_feitas_txt != 0:
+                            self.perda_acumulada = 0.0
+                            self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
 
-                            self.favorite_fixture = ''
-                            self.escreve_em_arquivo('favorite_fixture.txt', self.favorite_fixture, 'w')
+                        self.favorite_fixture = ''
+                        self.escreve_em_arquivo('favorite_fixture.txt', self.favorite_fixture, 'w')
 
-                            self.event_url = ''
-                            self.escreve_em_arquivo('event_url.txt', self.event_url, 'w')
+                        self.event_url = ''
+                        self.escreve_em_arquivo('event_url.txt', self.event_url, 'w')
 
-                            self.placar = ''
-                            self.escreve_em_arquivo('placar.txt', self.placar, 'w')
+                        self.placar = ''
+                        self.escreve_em_arquivo('placar.txt', self.placar, 'w')
 
-                            self.periodo = ''
-                            self.escreve_em_arquivo('periodo.txt', self.periodo, 'w')
+                        self.periodo = ''
+                        self.escreve_em_arquivo('periodo.txt', self.periodo, 'w')
 
-                            # só vai modificar o valor da aposta se tivermos perdido a última aposta
-                            ultimo_jogo = bet
+                        # só vai modificar o valor da aposta se tivermos perdido a última aposta
+                        ultimo_jogo = bet
 
-                            early_payout = ultimo_jogo['isEarlyPayout']
+                        early_payout = ultimo_jogo['isEarlyPayout']
 
-                            if ultimo_jogo['state'] == 'Canceled':
+                        if ultimo_jogo['state'] == 'Canceled':
 
-                                print('aposta cancelada')
+                            mensagem_telegram = 'Aposta cancelada.'
 
-                                if self.is_for_real:
-                                    self.qt_true_bets_made -= 1
-                                    self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')
+                            print('aposta cancelada')
 
-                                if self.qt_apostas_feitas_txt == 1:
-                                    self.qt_apostas_feitas_1 -= 1
-                                    self.escreve_em_arquivo('qt_apostas_feitas_1.txt', f'{self.qt_apostas_feitas_1}', 'w')
+                            if self.is_for_real:
+                                self.qt_true_bets_made -= 1
+                                self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')
+                            
+                            self.qt_apostas_feitas_1 -= 1
+                            self.escreve_em_arquivo('qt_apostas_feitas_1.txt', f'{self.qt_apostas_feitas_1}', 'w')
 
-                                self.qt_apostas_feitas_txt -= 1
-                                self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')
-                                
-                                valor_ultima_aposta = float( ultimo_jogo['stake']['value'])                                    
+                            self.qt_apostas_feitas_txt -= 1
+                            self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w')
+                            
+                            valor_ultima_aposta = float( ultimo_jogo['stake']['value'])                                    
 
-                                self.perda_acumulada -= valor_ultima_aposta      
-                                self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+                            self.perda_acumulada -= valor_ultima_aposta      
+                            self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
 
-                                self.saldo += valor_ultima_aposta
-                                self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                                                                 
+                            self.saldo += valor_ultima_aposta
+                            self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')                                                                 
 
-                                self.valor_aposta -= self.perda_acumulada                                    
+                            self.valor_aposta -= self.perda_acumulada  
+                            
+                        elif ultimo_jogo['state'] == 'Won' and not early_payout:                                 
 
-                                
-                            elif ultimo_jogo['state'] == 'Won' and not early_payout:                                 
+                            boost_payout = None
+                            try:
+                                boost_payout = float( ultimo_jogo['bestOddsGuaranteedInformation']['fixedPriceWinnings']['value'] )
+                            except:
+                                print('sem boost payout')
 
-                                boost_payout = None
-                                try:
-                                    boost_payout = float( ultimo_jogo['bestOddsGuaranteedInformation']['fixedPriceWinnings']['value'] )
-                                except:
-                                    print('sem boost payout')
+                            if boost_payout:
+                                valor_ganho = boost_payout
+                            else:
+                                valor_ganho = float( ultimo_jogo['payout']['value'] )
 
-                                if boost_payout:
-                                    valor_ganho = boost_payout
-                                else:
-                                    valor_ganho = float( ultimo_jogo['payout']['value'] )
+                            self.saldo += valor_ganho
+                            self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w') 
 
-                                self.saldo += valor_ganho
-                                self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w') 
+                            self.controle_over_under = 0
+                            self.escreve_em_arquivo('controle_over_under.txt', '0', 'w')
 
-                                self.controle_over_under = 0
-                                self.escreve_em_arquivo('controle_over_under.txt', '0', 'w')
+                            # if self.qt_apostas_feitas_txt == 1 or self.is_for_real:
+                            #     self.qt_vezes_perdida_aposta_1 = 0
+                            #     self.escreve_em_arquivo('qt_vezes_perdida_aposta_1.txt', f'{self.qt_vezes_perdida_aposta_1}', 'w')
 
-                                # if self.qt_apostas_feitas_txt == 1 or self.is_for_real:
-                                #     self.qt_vezes_perdida_aposta_1 = 0
-                                #     self.escreve_em_arquivo('qt_vezes_perdida_aposta_1.txt', f'{self.qt_vezes_perdida_aposta_1}', 'w')
+                            self.perda_acumulada -= valor_ganho                                    
 
-                                self.perda_acumulada -= valor_ganho                                    
+                            if self.perda_acumulada < 0:
+                                self.perda_acumulada = 0
 
-                                if self.perda_acumulada < 0:
-                                    self.perda_acumulada = 0
+                            self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')          
 
-                                self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')          
+                            if self.meta_progressiva and self.is_for_real:
+                                self.meta_ganho = self.saldo * self.fator_multiplicador     
 
-                                if self.meta_progressiva and self.is_for_real:
-                                    self.meta_ganho = self.saldo * self.fator_multiplicador     
+                                if self.meta_ganho > self.maior_meta_ganho:                           
+                                    self.maior_meta_ganho = self.meta_ganho
+                                    self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                                
+                                    print(f'Meta de ganho: R$ {self.meta_ganho:.2f}')
+                                    self.escreve_em_arquivo('maior_meta_ganho.txt', f'{self.maior_meta_ganho:.2f}', 'w')                                
 
-                                    if self.meta_ganho > self.maior_meta_ganho:                           
-                                        self.maior_meta_ganho = self.meta_ganho
-                                        self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                                
-                                        print(f'Meta de ganho: R$ {self.meta_ganho:.2f}')
-                                        self.escreve_em_arquivo('maior_meta_ganho.txt', f'{self.maior_meta_ganho:.2f}', 'w')                                
+                            mensagem_telegram = "RECUPEROU"
 
-                                texto_mensagem = "RECUPEROU"
+                            if self.saldo > self.maior_saldo:
+                                mensagem_telegram = "GANHOU"
+                                self.maior_saldo = self.saldo
+                                self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w') 
 
-                                if self.saldo > self.maior_saldo:
-                                    texto_mensagem = "GANHOU"
-                                    self.maior_saldo = self.saldo
-                                    self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w') 
-
-                                    if self.quit_on_next_win:     
-                                        try:
-                                            #if self.saldo > self.saldo_inicio_dia:                                        
-                                            
-                                            await self.telegram_bot_erro.envia_mensagem(f'{texto_mensagem}! {self.saldo:.2f}\nSaindo...')                                      
-
-                                        except Exception as e:
-                                            print(e)
-                                            print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')  
-                                        self.escreve_em_arquivo('last_time_check.txt', 'sair', 'w' )
-                                        self.chrome.quit()
-                                        exit() 
-
-                                if self.qt_apostas_feitas_txt in [1, 2, 3]:  
-
-                                    self.qt_true_bets_made = 0
-                                    self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')
-
+                                if self.quit_on_next_win:     
                                     try:
-                                        await self.telegram_bot_erro.envia_mensagem(f'{texto_mensagem}! {self.saldo:.2f}\nMeta de ganho: {self.meta_ganho:.2f}')                                      
+                                        #if self.saldo > self.saldo_inicio_dia:                                        
+                                        
+                                        await self.telegram_bot_erro.envia_mensagem(f'{mensagem_telegram}! {self.saldo:.2f}\nSaindo...')                                      
+
                                     except Exception as e:
                                         print(e)
-                                        print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')                      
+                                        print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')  
+                                    self.escreve_em_arquivo('last_time_check.txt', 'sair', 'w' )
+                                    self.chrome.quit()
+                                    exit() 
 
-                                self.qt_apostas_feitas_txt = 0
-                                self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w') 
-     
-                            elif ultimo_jogo['state'] == 'Lost':
-                                if self.qt_apostas_feitas_txt in [1, 2, 3]:
-                                    try:
-                                        await self.telegram_bot_erro.envia_mensagem('Perdeu.')                                                                         
-                                    except Exception as e:
-                                        print(e)
-                                        print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')                                                                              
-                    
+                                self.qt_true_bets_made = 0
+                                self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')                     
+
+                            self.qt_apostas_feitas_txt = 0
+                            self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w') 
+                        
+                        try:
+                            await self.telegram_bot_erro.envia_mensagem(f'{mensagem_telegram}! {self.saldo:.2f}\nMeta de ganho: {self.meta_ganho:.2f}')                                      
+                        except Exception as e:
+                            print(e)
+                            print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---') 
+                
                     fixtures = self.chrome.execute_script(f"let d = await fetch('https://sports.sportingbet.bet.br/cds-api/bettingoffer/fixtures?x-bwin-accessid={bwin_id}&lang=pt-br&country=BR&userCountry=BR&state=Live&take=200&offerMapping=Filtered&sortBy=StartDate&sportIds=4&forceFresh=1', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }}); return await d.json();")                                   
 
                     print('\n\n--- chamou fixtures de novo ---')
@@ -928,29 +925,29 @@ class ChromeAuto():
                                                         #mercado_over = self.find_no_goal_odd( option_markets, numero_gols_atual )                                                        
                                                         jogos_aptos.append({ 'market_name': market_name, 'type': 0, 'score': score, 'option_name': option['name']['value'], 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })
 
-                                for option_market in option_markets: 
-                                    market_name = option_market['name']['value']
-                                    if periodo in ['1º T', '1º Tempo', '1º tempo']:                                                                                
-                                        if market_name.lower() in ['1º tempo - total de gols', 'total de gols - 1º tempo']:
-                                            for option in option_market['options']:                                                        
-                                                if option['name']['value'] == f'Menos de {numero_gols_atual},5':
-                                                    odd = float(option['price']['odds'])
-                                                    option_id = option['id']                                                    
-                                                    # [float(o['price']['odds']), o['id'], m['name']['value'].lower()]
-                                                    if odd >= self.odd_inferior_para_apostar and odd < self.odd_superior_para_apostar:   
-                                                        #mercado_over = self.find_no_goal_odd( option_markets, numero_gols_atual )
+                                # for option_market in option_markets: 
+                                #     market_name = option_market['name']['value']
+                                #     if periodo in ['1º T', '1º Tempo', '1º tempo']:                                                                                
+                                #         if market_name.lower() in ['1º tempo - total de gols', 'total de gols - 1º tempo']:
+                                #             for option in option_market['options']:                                                        
+                                #                 if option['name']['value'] == f'Menos de {numero_gols_atual},5':
+                                #                     odd = float(option['price']['odds'])
+                                #                     option_id = option['id']                                                    
+                                #                     # [float(o['price']['odds']), o['id'], m['name']['value'].lower()]
+                                #                     if odd >= self.odd_inferior_para_apostar and odd < self.odd_superior_para_apostar:   
+                                #                         #mercado_over = self.find_no_goal_odd( option_markets, numero_gols_atual )
                                                         
-                                                        jogos_aptos.append({ 'market_name': market_name, 'type': 1, 'score': score, 'option_name': option['name']['value'], 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })
-                                    else:
-                                        if market_name.lower() in ['total de gols', 'total goals']:
-                                            for option in option_market['options']:                                                        
-                                                if option['name']['value'] == f'Menos de {numero_gols_atual},5':
-                                                    odd = float(option['price']['odds'])
-                                                    option_id = option['id']                                                   
+                                #                         jogos_aptos.append({ 'market_name': market_name, 'type': 1, 'score': score, 'option_name': option['name']['value'], 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })
+                                #     else:
+                                #         if market_name.lower() in ['total de gols', 'total goals']:
+                                #             for option in option_market['options']:                                                        
+                                #                 if option['name']['value'] == f'Menos de {numero_gols_atual},5':
+                                #                     odd = float(option['price']['odds'])
+                                #                     option_id = option['id']                                                   
 
-                                                    if odd >= self.odd_inferior_para_apostar and odd < self.odd_superior_para_apostar:
-                                                        #mercado_over = self.find_no_goal_odd( option_markets, numero_gols_atual )                                                        
-                                                        jogos_aptos.append({ 'market_name': market_name, 'type': 1, 'score': score, 'option_name': option['name']['value'], 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })
+                                #                     if odd >= self.odd_inferior_para_apostar and odd < self.odd_superior_para_apostar:
+                                #                         #mercado_over = self.find_no_goal_odd( option_markets, numero_gols_atual )                                                        
+                                #                         jogos_aptos.append({ 'market_name': market_name, 'type': 1, 'score': score, 'option_name': option['name']['value'], 'cronometro': cronometro, 'fixture_id': fixture_id, 'nome_evento': nome_evento, 'odd': odd, 'option_id' : option_id, 'periodo': periodo })
 
                             except Exception as e:                                    
                                 print('erro')                                    
@@ -969,7 +966,7 @@ class ChromeAuto():
                             print('--- SEM JOGOS ELEGÍVEIS ---')
 
                             print(datetime.now())
-                            if self.qt_apostas_feitas_txt in [0, 1, 2] and self.primeiro_alerta_sem_jogos_elegiveis:
+                            if self.primeiro_alerta_sem_jogos_elegiveis:
                                 try:
                                     await self.telegram_bot.envia_mensagem("Sem jogos elegíveis.")                             
                                     self.primeiro_alerta_sem_jogos_elegiveis = False
@@ -1017,19 +1014,15 @@ class ChromeAuto():
                                 self.periodo = jogo_apto['periodo']
                                 self.escreve_em_arquivo('periodo.txt', self.periodo, 'w')
 
-                                error = True
+                                
                                 jogo_aberto = None                                       
                                 jogos_ja_inseridos.append( f"{jogo_apto['fixture_id']}{jogo_apto['periodo']}" )
                                 bet = None
-                                while error:
-                                    try:
-                                        jogo_aberto = self.chrome.execute_script(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
-                                        if len( jogo_aberto['betslips'] ) > 0:
-                                            self.bet_slip_number = jogo_aberto['betslips'][0]['betSlipNumber']
-                                            self.escreve_em_arquivo('bet_slip_number.txt', self.bet_slip_number, 'w')
-                                            error = False                                                
-                                    except:
-                                        await self.testa_sessao()                                                
+                                
+                                jogo_aberto = await self.get(f'let d = await fetch("{base_url}/sports/api/mybets/betslips?index=1&maxItems=1&typeFilter=1"); return await d.json();')
+                                if len( jogo_aberto['betslips'] ) > 0:
+                                    self.bet_slip_number = jogo_aberto['betslips'][0]['betSlipNumber']
+                                    self.escreve_em_arquivo('bet_slip_number.txt', self.bet_slip_number, 'w')                                                                                        
 
                                     bet = jogo_aberto['betslips'][0]       
                                     
@@ -1048,30 +1041,28 @@ class ChromeAuto():
                                 self.gastos += self.valor_aposta
                                 self.escreve_em_arquivo('gastos.txt', f'{self.gastos:.2f}', 'w')
 
-                                if self.qt_apostas_feitas_txt in [1, 2, 3]:
+                                self.qt_apostas_feitas_1 += 1
+                                self.escreve_em_arquivo('qt_apostas_feitas_1.txt', f'{self.qt_apostas_feitas_1}', 'w')
 
-                                    self.qt_apostas_feitas_1 += 1
-                                    self.escreve_em_arquivo('qt_apostas_feitas_1.txt', f'{self.qt_apostas_feitas_1}', 'w')
+                                self.qt_true_bets_made += 1
+                                self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')
 
-                                    self.qt_true_bets_made += 1
-                                    self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')
+                                self.perda_acumulada += self.valor_aposta
+                                self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
 
-                                    self.perda_acumulada += self.valor_aposta
-                                    self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+                                self.primeiro_alerta_depois_do_jogo = True
+                                self.primeiro_alerta_sem_jogos_elegiveis = True   
+                                self.primeiro_alerta_sem_jogos_ao_vivo = True
 
-                                    self.primeiro_alerta_depois_do_jogo = True
-                                    self.primeiro_alerta_sem_jogos_elegiveis = True   
-                                    self.primeiro_alerta_sem_jogos_ao_vivo = True
-
-                                    try:
-                                        await self.telegram_bot.envia_mensagem(f"""Odd: {self.cota} Valor da aposta: R$ {self.valor_aposta:.2f}
+                                try:
+                                    await self.telegram_bot.envia_mensagem(f"""Odd: {self.cota} Valor da aposta: R$ {self.valor_aposta:.2f}
 Saldo: R$ {self.saldo:.2f} Jogos filtrados: {numeros_jogos_filtrados}
 Aposta {self.qt_true_bets_made}""")                             
-                                    except Exception as e:
-                                        print(e)
-                                        print('Não foi possível enviar mensagem ao telegram.')
+                                except Exception as e:
+                                    print(e)
+                                    print('Não foi possível enviar mensagem ao telegram.')
 
-                                    self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")                                                          
+                                self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")                                                          
 
                                 self.saldo -= self.valor_aposta
                                 self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
@@ -1083,6 +1074,26 @@ Aposta {self.qt_true_bets_made}""")
 
                                 if not self.varios_jogos:
                                     break
+
+                            elif not bet_made and not self.varios_jogos:
+                                try:
+                                    WebDriverWait(self.chrome, 5).until(
+                                        EC.element_to_be_clickable((By.CSS_SELECTOR, "div.geo-comply-button button") )).click()
+                                    # se ele achou essa merda é porque foi erro de localização, então vou deslogar e logar de novo
+                                    sleep(1)
+
+                                    self.faz_logout()
+
+                                    sleep(1)
+                                    self.numero_apostas_feitas = 0
+                                    self.escreve_em_arquivo('last_time_check.txt', 'erro_aposta', 'w' )
+                                    self.chrome.quit()
+                                    exit()
+                                except Exception as e:
+                                    # não achou o elemento, deve ter sido outro erro qualquer, não vou sair
+                                    print(e)
+
+                                
                            
                 except ErroCotaForaIntervalo as e:
                     # pode ter acontecido do mercado ter sumido no momento da aposta ou a cota estar fora o intervalo
@@ -1134,7 +1145,7 @@ Aposta {self.qt_true_bets_made}""")
         # 2024-12-26T20:00:00Z
         date = datetime.strptime( start_date, "%Y-%m-%dT%H:%M:%SZ" )
         while datetime.now() + timedelta(hours=3) < date:
-            self.continuar_na_sessao_click(self)
+            self.continuar_na_sessao_click()
             print('Esperando partida iniciar.')
             self.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
             sleep(5 * 60 )
@@ -2634,9 +2645,33 @@ Aposta {self.qt_apostas_feitas_txt}""")
     async def make_bet_under(self, jogo_apto):
         nome_evento = jogo_apto['nome_evento']
         option_id = jogo_apto['option_id']
+        period = jogo_apto['periodo']
 
         try:
             self.navigate_to(f'{base_url}/sports/eventos/{nome_evento}?market=3')
+
+            if period == '1º T':
+                clicou = False
+                index = 0
+                while not clicou and index < 5:
+                    try:                    
+                        mercado_1_tempo = WebDriverWait(self.chrome, 5).until(
+                            EC.presence_of_all_elements_located((By.XPATH, "//*[normalize-space(text()) = '1º Tempo']/ancestor::div/ancestor::li"))) 
+                        mercado_1_tempo[index].click()                                                            
+                        break                 
+                    except Exception as e:
+                        print(e)
+                        index += 1     
+
+            odd = WebDriverWait(self.chrome, 5).until(
+                EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id}"]/descendant::span' ) ))
+            
+            # vou tentar converter pra inteiro pra ver se o mercado está disponível
+            try:
+                float( odd.get_property('innerText'))
+            except Exception as e:
+                print(e)
+                return False
 
             clicou = False
             index = 0
@@ -2665,7 +2700,7 @@ Aposta {self.qt_apostas_feitas_txt}""")
             if cota == None:
                 return False
 
-            self.calcula_valor_aposta_pools(cota)
+            self.calcula_valor_aposta(cota)
 
             aposta_feita = await self.insere_valor(None)
             return aposta_feita   
@@ -3194,6 +3229,6 @@ if __name__ == '__main__':
             chrome.only_messages = True
         chrome.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
         chrome.acessa(f'{base_url}/sports')                    
-        asyncio.run( chrome.geysons_strategy() )
+        asyncio.run( chrome.busca_odds_fim_jogo_sem_gol() )
     except Exception as e:
         print(e)
