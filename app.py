@@ -504,6 +504,7 @@ class ChromeAuto():
             self.chrome.get(url)
             self.chrome.maximize_window()
         except Exception as e:
+            print(e)
             print('erro ao navegar pro jogo')
             raise e
         
@@ -546,7 +547,7 @@ class ChromeAuto():
     async def busca_odds_fim_jogo_sem_gol(self):
 
         try:
-            self.numeros_erros_ao_apostar = 0
+            self.localization_errors = 0
             self.tempo_pausa = 90
             self.times_favoritos = []        
             self.first_message_after_bet = False
@@ -597,7 +598,7 @@ class ChromeAuto():
         if not await self.is_logged_in():
             await self.faz_login()        
 
-        await self.le_saldo()
+        # await self.le_saldo()
         # print('saldo: ', self.saldo)
 
         #self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
@@ -821,10 +822,10 @@ class ChromeAuto():
                                     print(f'Meta de ganho: R$ {self.meta_ganho:.2f}')
                                     self.escreve_em_arquivo('maior_meta_ganho.txt', f'{self.maior_meta_ganho:.2f}', 'w')                                
 
-                            mensagem_telegram = "RECUPEROU"
+                            mensagem_telegram = f"Recuperou.\n{self.saldo:.2f} Meta de ganho: {self.meta_ganho:.2f}"
 
                             if self.saldo > self.maior_saldo:
-                                mensagem_telegram = "GANHOU"
+                                mensagem_telegram = f"GANHOU. \n{self.saldo:.2f} Meta de ganho: {self.meta_ganho:.2f}"
                                 self.maior_saldo = self.saldo
                                 self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w') 
 
@@ -848,7 +849,7 @@ class ChromeAuto():
                             self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w') 
                         
                         try:
-                            await self.telegram_bot_erro.envia_mensagem(f'{mensagem_telegram}! {self.saldo:.2f}\nMeta de ganho: {self.meta_ganho:.2f}')                                      
+                            await self.telegram_bot_erro.envia_mensagem(mensagem_telegram)                                      
                         except Exception as e:
                             print(e)
                             print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---') 
@@ -960,7 +961,7 @@ class ChromeAuto():
 
                         print(periodos)
 
-                        jogos_aptos_ordenado = list( sorted(jogos_aptos, key=lambda el: ( el['type'], el['odd'] ) ))
+                        jogos_aptos_ordenado = list( sorted(jogos_aptos, key=lambda el: ( el['type'], -el['odd'] ) ))
 
                         if len(jogos_aptos_ordenado) == 0:
                             print('--- SEM JOGOS ELEGÍVEIS ---')
@@ -1000,6 +1001,8 @@ class ChromeAuto():
                                 bet_made = await self.make_bet_under(jogo_apto)
                             
                             if bet_made and not self.varios_jogos:
+
+                                self.localization_errors += 0
                                 
                                 self.controle_over_under += 1
                                 self.escreve_em_arquivo('controle_over_under.txt', f'{self.controle_over_under}', 'w')
@@ -1057,7 +1060,7 @@ class ChromeAuto():
                                 try:
                                     await self.telegram_bot.envia_mensagem(f"""Odd: {self.cota} Valor da aposta: R$ {self.valor_aposta:.2f}
 Saldo: R$ {self.saldo:.2f} Jogos filtrados: {numeros_jogos_filtrados}
-Aposta {self.qt_true_bets_made}""")                             
+Aposta {self.qt_apostas_feitas_txt}""")                             
                                 except Exception as e:
                                     print(e)
                                     print('Não foi possível enviar mensagem ao telegram.')
@@ -1076,19 +1079,23 @@ Aposta {self.qt_true_bets_made}""")
                                     break
 
                             elif not bet_made and not self.varios_jogos:
-                                try:
+                                try:                                   
+
                                     WebDriverWait(self.chrome, 5).until(
                                         EC.element_to_be_clickable((By.CSS_SELECTOR, "div.geo-comply-button button") )).click()
                                     # se ele achou essa merda é porque foi erro de localização, então vou deslogar e logar de novo
                                     sleep(1)
 
-                                    self.faz_logout()
+                                    self.localization_errors += 1
 
-                                    sleep(1)
-                                    self.numero_apostas_feitas = 0
-                                    self.escreve_em_arquivo('last_time_check.txt', 'erro_aposta', 'w' )
-                                    self.chrome.quit()
-                                    exit()
+                                    if self.localization_errors > 3:
+                                        self.faz_logout()
+
+                                        sleep(1)
+                                        self.numero_apostas_feitas = 0
+                                        self.escreve_em_arquivo('last_time_check.txt', 'erro_aposta', 'w' )
+                                        self.chrome.quit()
+                                        exit()
                                 except Exception as e:
                                     # não achou o elemento, deve ter sido outro erro qualquer, não vou sair
                                     print(e)
@@ -2694,6 +2701,9 @@ Aposta {self.qt_apostas_feitas_txt}""")
             cota = None
             try:
                 cota = self.get_bet_odd(option_id)
+                if cota < self.odd_inferior_para_apostar or cota > self.odd_superior_para_apostar:
+                    print('cota fora do intervalo')
+                    return False
             except:
                 return False
             
