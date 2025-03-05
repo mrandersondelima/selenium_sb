@@ -561,9 +561,9 @@ class ChromeAuto():
             self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
             self.varios_jogos = False        
             self.meta_progressiva = True
-            self.fator_multiplicador = 0.00138
+            self.fator_multiplicador = 0.0004575
             self.quit_on_next_win = False
-            self.teste = True
+            self.teste = False
             self.limite_inferior = 2.8
             self.only_favorites = False
             self.odd_de_corte = 1.5
@@ -635,6 +635,7 @@ class ChromeAuto():
             self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')
 
         print(f'Meta de ganho: R$ {self.meta_ganho:.2f}')
+        print(f'Saldo: R$ {self.saldo:.2f}')
 
         print('proceso do chrome ', self.chrome.service.process.pid)
         self.escreve_em_arquivo('chrome_process_id.txt', f'{self.chrome.service.process.pid}', 'w' ) 
@@ -814,36 +815,27 @@ class ChromeAuto():
                             self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')          
 
                             if self.meta_progressiva and self.is_for_real:
-                                self.meta_ganho = self.saldo * self.fator_multiplicador     
+                                self.meta_ganho = self.saldo * self.fator_multiplicador 
+                                self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                                
+                                print(f'Meta de ganho: R$ {self.meta_ganho:.2f}')   
+                                                       
+                            mensagem_telegram = f"GANHOU. \n{self.saldo:.2f} Meta de ganho: {self.meta_ganho:.2f}"                            
 
-                                if self.meta_ganho > self.maior_meta_ganho:                           
-                                    self.maior_meta_ganho = self.meta_ganho
-                                    self.escreve_em_arquivo('meta_ganho.txt', f'{self.meta_ganho:.2f}', 'w')                                
-                                    print(f'Meta de ganho: R$ {self.meta_ganho:.2f}')
-                                    self.escreve_em_arquivo('maior_meta_ganho.txt', f'{self.maior_meta_ganho:.2f}', 'w')                                
+                            if self.quit_on_next_win:     
+                                try:
+                                    #if self.saldo > self.saldo_inicio_dia:                                        
+                                    
+                                    await self.telegram_bot_erro.envia_mensagem(f'{mensagem_telegram}! {self.saldo:.2f}\nSaindo...')                                      
 
-                            mensagem_telegram = f"Recuperou.\n{self.saldo:.2f} Meta de ganho: {self.meta_ganho:.2f}"
+                                except Exception as e:
+                                    print(e)
+                                    print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')  
+                                self.escreve_em_arquivo('last_time_check.txt', 'sair', 'w' )
+                                self.chrome.quit()
+                                exit() 
 
-                            if self.saldo > self.maior_saldo:
-                                mensagem_telegram = f"GANHOU. \n{self.saldo:.2f} Meta de ganho: {self.meta_ganho:.2f}"
-                                self.maior_saldo = self.saldo
-                                self.escreve_em_arquivo('maior_saldo.txt', f'{self.maior_saldo:.2f}', 'w') 
-
-                                if self.quit_on_next_win:     
-                                    try:
-                                        #if self.saldo > self.saldo_inicio_dia:                                        
-                                        
-                                        await self.telegram_bot_erro.envia_mensagem(f'{mensagem_telegram}! {self.saldo:.2f}\nSaindo...')                                      
-
-                                    except Exception as e:
-                                        print(e)
-                                        print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')  
-                                    self.escreve_em_arquivo('last_time_check.txt', 'sair', 'w' )
-                                    self.chrome.quit()
-                                    exit() 
-
-                                self.qt_true_bets_made = 0
-                                self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')                     
+                            self.qt_true_bets_made = 0
+                            self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')                     
 
                             self.qt_apostas_feitas_txt = 0
                             self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w') 
@@ -2565,11 +2557,11 @@ Aposta {self.qt_apostas_feitas_txt}""")
 
         print(f'cota: {cota}\nvalor_aposta: {self.valor_aposta}')
 
-        if self.qt_apostas_feitas_txt >= 3:
-            self.is_for_real = True
-        else:
-             self.is_for_real = False
-             self.valor_aposta = 0.1
+        #if self.qt_apostas_feitas_txt >= 3:
+        self.is_for_real = True
+        # else:
+        #      self.is_for_real = False
+        #      self.valor_aposta = 0.1
 
         # if self.qt_apostas_feitas_txt in [3,4]:
         #     self.is_for_real = True   
