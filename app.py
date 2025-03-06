@@ -554,9 +554,12 @@ class ChromeAuto():
             self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
             self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
             self.soma_odds = self.le_de_arquivo('soma_odds.txt', 'float')
+            self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
+            self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')  
             self.qt_apostas = self.le_de_arquivo('qt_apostas.txt', 'int')
             self.is_bet_lost = self.le_de_arquivo('is_bet_lost.txt', 'boolean')
             self.maior_saldo = self.le_de_arquivo('maior_saldo.txt', 'float')
+            self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int')
             self.saldo = self.le_de_arquivo('saldo.txt', 'float')
             self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
             self.varios_jogos = False        
@@ -626,9 +629,7 @@ class ChromeAuto():
                 fixture_id_to_betslip = pickle.load(fp)
         except:
             print('erro ao ler arquivo')
-        self.meta_ganho = self.le_de_arquivo('meta_ganho.txt', 'float')
-        self.perda_acumulada = self.le_de_arquivo('perda_acumulada.txt', 'float')
-        self.qt_apostas_feitas_txt = self.le_de_arquivo('qt_apostas_feitas_txt.txt', 'int')        
+                   
 
         if self.meta_ganho == 0:
             self.meta_ganho = self.saldo * self.fator_multiplicador
@@ -640,7 +641,7 @@ class ChromeAuto():
         print('proceso do chrome ', self.chrome.service.process.pid)
         self.escreve_em_arquivo('chrome_process_id.txt', f'{self.chrome.service.process.pid}', 'w' ) 
 
-        if self.event_url != '':            
+        if self.bet_slip_number != '':            
             try:
                 bet = await self.get(f"let d = await fetch('{base_url}/sports/api/mybets/betslip?betslipId={self.bet_slip_number}', {{ headers: {{ 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }} }} ); return await d.json();")
                 bet = bet['betslip']                
@@ -1042,6 +1043,16 @@ class ChromeAuto():
                                 self.qt_true_bets_made += 1
                                 self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')
 
+                                self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")                                                          
+
+                                self.saldo -= self.valor_aposta
+                                self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
+                                
+                                self.is_bet_lost = False
+
+                                self.saldo_antes_aposta = self.saldo
+                                self.escreve_em_arquivo('saldo_antes_aposta.txt', f'{self.saldo:.2f}', 'w')
+
                                 self.perda_acumulada += self.valor_aposta
                                 self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
 
@@ -1055,17 +1066,7 @@ Saldo: R$ {self.saldo:.2f} Jogos filtrados: {numeros_jogos_filtrados}
 Aposta {self.qt_apostas_feitas_txt}""")                             
                                 except Exception as e:
                                     print(e)
-                                    print('Não foi possível enviar mensagem ao telegram.')
-
-                                self.hora_ultima_aposta = datetime.now().strftime("%d/%m/%Y %H:%M")                                                          
-
-                                self.saldo -= self.valor_aposta
-                                self.escreve_em_arquivo('saldo.txt', f'{self.saldo:.2f}', 'w')
-                                
-                                self.is_bet_lost = False
-
-                                self.saldo_antes_aposta = self.saldo
-                                self.escreve_em_arquivo('saldo_antes_aposta.txt', f'{self.saldo:.2f}', 'w')
+                                    print('Não foi possível enviar mensagem ao telegram.')                               
 
                                 if not self.varios_jogos:
                                     break
@@ -1191,12 +1192,12 @@ Aposta {self.qt_apostas_feitas_txt}""")
             self.fator_multiplicador = 0.05364
             self.quit_on_next_win = False
             self.teste = True
-            self.numero_combinadas = 3
+            self.numero_combinadas = 1
             self.limite_inferior = 2.8
             self.only_favorites = False
             self.odd_de_corte = 1.6
             self.odd_inferior_para_apostar = 1.6
-            self.odd_superior_para_apostar = 2
+            self.odd_superior_para_apostar = 20
             self.tolerancia_perdas = 6
             self.usar_tolerancia_perdas = False
             self.controle_over_under = self.le_de_arquivo('controle_over_under.txt', 'int')        
@@ -1497,7 +1498,7 @@ Aposta {self.qt_apostas_feitas_txt}""")
                                         market_name = option_market['name']['value']                                                                              
                                         if market_name.lower() in ['1º tempo - total de gols', 'total de gols - 1º tempo']:
                                             for option in option_market['options']:                                                        
-                                                if option['name']['value'] == 'Menos de 2,5' and float( option['price']['odds']) >= 0.1:
+                                                if option['name']['value'] == 'Mais de 2,5' and float( option['price']['odds']) >= 0.1:
                                                     odd_under = float(option['price']['odds'])
                                                     option_id_under = option['id']    
                                                     original_start_date = start_date
@@ -1552,7 +1553,7 @@ Aposta {self.qt_apostas_feitas_txt}""")
 
                         self.numero_apostas_feitas = 0                                 
 
-                        jogos_aptos = list( sorted( jogos_aptos, key=lambda e: ( e['original_start_date'], -e['odd_combinada'] )))
+                        jogos_aptos = list( sorted( jogos_aptos, key=lambda e: ( e['original_start_date'], -e['odd_under'] )))
 
                         string_matches = ''
                         if self.only_messages:
@@ -3231,6 +3232,6 @@ if __name__ == '__main__':
             chrome.only_messages = True
         chrome.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
         chrome.acessa(f'{base_url}/sports')                    
-        asyncio.run( chrome.busca_odds_fim_jogo_sem_gol() )
+        asyncio.run( chrome.geysons_strategy() )
     except Exception as e:
         print(e)
