@@ -506,7 +506,8 @@ class ChromeAuto():
         except Exception as e:
             print(e)
             print('erro ao navegar pro jogo')
-            raise e
+            self.escreve_em_arquivo('last_time_check.txt', 'erro_aposta', 'w' )
+            self.chrome.quit()
         
         sleep(3)
 
@@ -551,6 +552,7 @@ class ChromeAuto():
             self.tempo_pausa = 90
             self.times_favoritos = []        
             self.first_message_after_bet = False
+            self.ganho_real_a_partir_de_qual_aposta = 3
             self.same_match_bet = self.le_de_arquivo('same_match_bet.txt', 'boolean')
             self.bet_slip_number = self.le_de_arquivo('bet_slip_number.txt', 'string')
             self.soma_odds = self.le_de_arquivo('soma_odds.txt', 'float')
@@ -564,7 +566,7 @@ class ChromeAuto():
             self.ja_conferiu_resultado = self.le_de_arquivo('ja_conferiu_resultado.txt', 'boolean')
             self.varios_jogos = False        
             self.meta_progressiva = True
-            self.fator_multiplicador = 0.0004575
+            self.fator_multiplicador = 0.00414
             self.quit_on_next_win = False
             self.teste = False
             self.limite_inferior = 2.8
@@ -1479,6 +1481,10 @@ Aposta {self.qt_apostas_feitas_txt}""")
                                 fixture_id = fixture['id']
                                 name = fixture['name']['value']
                                 competition = fixture['competition']['name']['value']
+
+                                if 'amisto' in competition.lower():
+                                    continue
+
                                 region = fixture['region']['name']['value']
                                 numero_gols_atual = fixture['scoreboard']['score']      
                                 score = fixture['scoreboard']['score']      
@@ -2554,15 +2560,19 @@ Aposta {self.qt_apostas_feitas_txt}""")
 
         self.cota = cota
 
+        if self.qt_apostas_feitas_txt == self.ganho_real_a_partir_de_qual_aposta - 1:
+            self.perda_acumulada = 0.0
+            self.escreve_em_arquivo('perda_acumulada.txt', f'{self.perda_acumulada:.2f}', 'w')
+
         self.valor_aposta = ( ( self.perda_acumulada + self.meta_ganho ) / ( cota - 1 ) ) + 0.01                                            
 
         print(f'cota: {cota}\nvalor_aposta: {self.valor_aposta}')
 
-        #if self.qt_apostas_feitas_txt >= 3:
-        self.is_for_real = True
-        # else:
-        #      self.is_for_real = False
-        #      self.valor_aposta = 0.1
+        if self.qt_apostas_feitas_txt >= self.ganho_real_a_partir_de_qual_aposta - 1:
+            self.is_for_real = True
+        else:
+            self.is_for_real = False
+            self.valor_aposta = 0.1
 
         # if self.qt_apostas_feitas_txt in [3,4]:
         #     self.is_for_real = True   
@@ -2586,20 +2596,20 @@ Aposta {self.qt_apostas_feitas_txt}""")
         try:
             self.navigate_to(f'{base_url}/sports/eventos/{nome_evento}?market=3')
 
-            over = WebDriverWait(self.chrome, 15).until(
-                EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id_over}"]' ) ))
+            # over = WebDriverWait(self.chrome, 15).until(
+            #     EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id_over}"]' ) ))
             
-            odd = WebDriverWait(self.chrome, 5).until(
-                EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id_over}"]/descendant::span' ) ))
+            # odd = WebDriverWait(self.chrome, 5).until(
+            #     EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id_over}"]/descendant::span' ) ))
             
-            # vou tentar converter pra inteiro pra ver se o mercado está disponível
-            try:
-                float( odd.get_property('innerText'))
-            except Exception as e:
-                print(e)
-                return False
+            # # vou tentar converter pra inteiro pra ver se o mercado está disponível
+            # try:
+            #     float( odd.get_property('innerText'))
+            # except Exception as e:
+            #     print(e)
+            #     return False
 
-            over.click()            
+            # over.click()            
 
             clicou = False
             index = 0
@@ -3232,6 +3242,6 @@ if __name__ == '__main__':
             chrome.only_messages = True
         chrome.escreve_em_arquivo('last_time_check.txt', datetime.now().strftime( '%Y-%m-%d %H:%M' ), 'w' )
         chrome.acessa(f'{base_url}/sports')                    
-        asyncio.run( chrome.geysons_strategy() )
+        asyncio.run( chrome.busca_odds_fim_jogo_sem_gol() )
     except Exception as e:
         print(e)
