@@ -1394,9 +1394,13 @@ Aposta {self.qt_apostas_feitas_txt}""")
                             self.controle_over_under = 0
                             self.escreve_em_arquivo('controle_over_under.txt', '0', 'w')
 
-                            if self.qt_apostas_feitas_txt == 1 or self.is_for_real:
-                                self.qt_vezes_perdida_aposta_1 = 0
-                                self.escreve_em_arquivo('qt_vezes_perdida_aposta_1.txt', f'{self.qt_vezes_perdida_aposta_1}', 'w')
+                            if self.qt_apostas_feitas_txt == 1:
+                                self.qt_apostas_feitas_1 = 0
+                                self.escreve_em_arquivo('qt_apostas_feitas_1.txt', f'{self.qt_apostas_feitas_1}', 'w')
+
+                            if self.is_for_real:
+                                self.qt_true_bets_made = 0
+                                self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')                     
 
                             self.perda_acumulada -= valor_ganho                                    
 
@@ -1423,10 +1427,7 @@ Aposta {self.qt_apostas_feitas_txt}""")
                                     print('--- NÃO FOI POSSÍVEL ENVIAR MENSAGEM AO TELEGRAM ---')  
                                 self.escreve_em_arquivo('last_time_check.txt', 'sair', 'w' )
                                 self.chrome.quit()
-                                exit() 
-
-                            self.qt_true_bets_made = 0
-                            self.escreve_em_arquivo('qt_true_bets_made.txt', f'{self.qt_true_bets_made}', 'w')                     
+                                exit()                             
 
                             self.qt_apostas_feitas_txt = 0
                             self.escreve_em_arquivo('qt_apostas_feitas_txt.txt', f'{self.qt_apostas_feitas_txt}', 'w') 
@@ -1663,9 +1664,8 @@ Aposta {self.qt_apostas_feitas_txt}""")
                                 self.primeiro_alerta_sem_jogos_ao_vivo = True
 
                                 try:
-                                    await self.telegram_bot.envia_mensagem(f"""Odd: {self.cota} Valor da aposta: R$ {self.valor_aposta:.2f}
-Saldo: R$ {self.saldo:.2f} Jogos filtrados: {numeros_jogos_filtrados}
-Aposta {self.qt_apostas_feitas_txt}""")                             
+                                    await self.telegram_bot.envia_mensagem(f"""Valor: R$ {self.valor_aposta:.2f} Saldo: R$ {self.saldo:.2f}
+True bets: {self.qt_true_bets_made} Qt first bets: {self.qt_apostas_feitas_1}""")                             
                                 except Exception as e:
                                     print(e)
                                     print('Não foi possível enviar mensagem ao telegram.')                               
