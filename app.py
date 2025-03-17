@@ -3894,15 +3894,24 @@ Aposta {self.qt_apostas_feitas_txt}""")
             if period == '1º T':
                 clicou = False
                 index = 0
-                while not clicou and index < 5:
+                while not clicou and index < 3:
                     try:                    
                         mercado_1_tempo = WebDriverWait(self.chrome, 5).until(
                             EC.presence_of_all_elements_located((By.XPATH, "//*[normalize-space(text()) = '1º Tempo']/ancestor::div/ancestor::li"))) 
                         mercado_1_tempo[index].click()                                                            
                         break                 
                     except Exception as e:
+                        print(e)                         
+
+                    try:                    
+                        mercado_1_tempo = WebDriverWait(self.chrome, 5).until(
+                            EC.presence_of_all_elements_located((By.XPATH, "//*[normalize-space(text()) = '1st Half']/ancestor::div/ancestor::li"))) 
+                        mercado_1_tempo[index].click()                                                            
+                        break                 
+                    except Exception as e:
                         print(e)
-                        index += 1     
+                        index += 1   
+                
 
             odd = WebDriverWait(self.chrome, 5).until(
                 EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id}"]/descendant::span' ) ))
