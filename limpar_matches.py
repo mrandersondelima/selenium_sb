@@ -9,6 +9,8 @@ def escreve_em_arquivo(nome_arquivo, valor, tipo_escrita):
     with open(nome_arquivo, tipo_escrita) as f:
         f.write(valor)
 
+input('Tem certeza que deseja limpar os dados? Aperte enter para continuar...')
+
 try: 
     with open('times_favoritos.json', 'wb') as fp:
         save_array_on_disk('times_favoritos.json', [])
@@ -22,6 +24,8 @@ try:
     escreve_em_arquivo('event_url.txt', '', 'w')
 
     escreve_em_arquivo('maior_saldo.txt', '0', 'w')
+
+    escreve_em_arquivo('qt_greens_seguidos.txt', '0', 'w')
 
     escreve_em_arquivo('maior_meta_ganho.txt', '0', 'w')
 

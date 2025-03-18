@@ -1,0 +1,15 @@
+POST https://geoloc-real-br.partygaming.com/rest/gds/locationInfostatus
+accept: application/json, text/plain, */*
+cache-control: no-cache
+content-type: text/plain
+referer: https://sports.sportingbet.bet.br/
+sec-ch-ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "Windows" 
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+x-xsrf-token: b325e343ef4941e182dc851038db74f6
+
+<request>
+    <ssoKey>7Opom20883z60gQi9bffVHzJgSXa0kxNJMFY2dxipxd8N1pUiguRGdgWOeA7RqBp7nYtsWhnjCpqhBi9_m531Nx4iews8J96dC_uVRuNdLhBfKfwevgkvsnLPm940vG38oViaeKCgawhzCNin47NP2qPk6llRcCwiTLC0ut3vx-Ys2KKGROjyjOfU7Sv-fKgfjeK34bTWd6sm3llOba6iIhV502_HW1TasgUBSQW-9kztQc-6N_VfGsHRmD_2D5I</ssoKey>
+    <licenseSolution>ndbs</licenseSolution>
+</request>

@@ -33,3 +33,22 @@ class EstiloJogo():
     REVEZAMENTO_ENTRE_12_13 = 16
     DOIS_JOGOS_DOIS_OU_TRES_GOLS = 17
     ACIMA_DOIS_MEIO_E_DOIS_GOLS = 18
+
+            
+def escreve_em_arquivo(nome_arquivo, valor, tipo_escrita):
+    with open(nome_arquivo, tipo_escrita) as f:
+        f.write(valor)
+
+
+def le_de_arquivo(nome_arquivo, tipo):
+    with open(nome_arquivo, 'r') as f:
+        if tipo == 'int':
+            return int( f.read() )
+        elif tipo == 'float':
+            return float( f.read() )
+        elif tipo == 'boolean':
+            valor = f.read()
+            return True if valor == 'True' else False
+        elif tipo == 'string':
+            return f.read()
+         
