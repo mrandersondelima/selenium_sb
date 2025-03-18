@@ -1,33 +1,13 @@
 from datetime import datetime
-import pathlib
-from subprocess import PIPE, Popen, TimeoutExpired
+from subprocess import Popen
 from time import sleep
 import sys
-import os
-import signal
 import asyncio
-import psutil
 from credenciais import app_path
-
-def le_de_arquivo(nome_arquivo, tipo):
-    with open(nome_arquivo, 'r') as f:
-        if tipo == 'int':
-            return int( f.read() )
-        elif tipo == 'float':
-            return float( f.read() )
-        elif tipo == 'boolean':
-            valor = f.read()
-            return True if valor == 'True' else False
-        elif tipo == 'string':
-            return f.read()
-
-def escreve_em_arquivo(nome_arquivo, valor, tipo_escrita):
-    with open(nome_arquivo, tipo_escrita) as f:
-        f.write(valor)
+from utils import le_de_arquivo, escreve_em_arquivo
 
 async def main():
-    only_messages = False    
-    first_time = True
+    only_messages = False        
 
     if '--help' in sys.argv:
         print('Opções:')
@@ -54,11 +34,7 @@ async def main():
                         if proc:
                             Popen(f"taskkill /f /pid {proc.pid}")     
                         chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
-                        #p = psutil.Process(chrome_process_id)
-                        Popen(f"taskkill /f /pid {chrome_process_id} /t")     
-                        # for p in p.children(recursive=True):
-                        #     print(p.pid)
-                        #     Popen(f'taskkill /f /pid {p.pid}')          
+                        Popen(f"taskkill /f /pid {chrome_process_id} /t")        
                         proc = None                   
                     except KeyboardInterrupt:
                         print('saindo...')
@@ -77,11 +53,7 @@ async def main():
                     if proc:
                         Popen(f"taskkill /f /pid {proc.pid}")     
                     chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
-                    #p = psutil.Process(chrome_process_id)
                     Popen(f"taskkill /f /pid {chrome_process_id} /t")     
-                    # for p in p.children(recursive=True):
-                    #     print(p.pid)
-                    #     Popen(f'taskkill /f /pid {p.pid}')        
                     proc = None                   
                 except KeyboardInterrupt:
                     print('saindo...')
@@ -108,11 +80,7 @@ async def main():
                     if proc:
                         Popen(f"taskkill /f /pid {proc.pid}")     
                     chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
-                    #p = psutil.Process(chrome_process_id)
-                    Popen(f"taskkill /f /pid {chrome_process_id} /t")     
-                    # for p in p.children(recursive=True):
-                    #     print(p.pid)
-                    #     Popen(f'taskkill /f /pid {p.pid}')          
+                    Popen(f"taskkill /f /pid {chrome_process_id} /t")        
                     proc = None                   
                 except KeyboardInterrupt:
                     print('saindo...')
@@ -137,11 +105,7 @@ async def main():
                 if proc:
                     Popen(f"taskkill /f /pid {proc.pid}")     
                 chrome_process_id = le_de_arquivo('chrome_process_id.txt', 'int')
-                #p = psutil.Process(chrome_process_id)
                 Popen(f"taskkill /f /pid {chrome_process_id} /t")     
-                # for p in p.children(recursive=True):
-                #     print(p.pid)
-                #     Popen(f'taskkill /f /pid {p.pid}')       
                 proc = None       
             except KeyboardInterrupt:
                 print('saindo...')

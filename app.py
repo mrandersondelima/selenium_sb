@@ -1175,8 +1175,6 @@ class ChromeAuto():
 
 if __name__ == '__main__':
 
-    print(sys.argv)
-
     try:
         chrome = ChromeAuto(numero_apostas=200, numero_jogos_por_aposta=10)
         if '-om' in sys.argv:
