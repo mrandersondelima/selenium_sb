@@ -39,8 +39,7 @@ class ChromeAuto():
         self.telegram_bot_erro = TelegramBotErro()                     
         self.apenas_acompanhar = apenas_acompanhar        
         self.jogos_aleatorios = dict()
-        self.numero_apostas = numero_apostas
-        #self.gera_jogos_aleatorios()
+        self.numero_apostas = numero_apostas        
         self.primeiro_alerta_depois_do_jogo = True
         self.numero_erros_global = 0
         self.tempo_pausa = None
@@ -53,8 +52,7 @@ class ChromeAuto():
         self.varios_jogos = True
         self.saldo_inicio_dia = 0.0
         self.aposta_fechada = False
-        self.ja_conferiu_resultado = True
-        #self.meta_ganho = 0.0
+        self.ja_conferiu_resultado = True        
         self.hora_ultima_aposta = ''
         self.perda_acumulada = None
         self.meta_ganho = None
@@ -1061,27 +1059,9 @@ class ChromeAuto():
             print(e)
             print('não consegui pegar a odd do sumário')
             raise Exception('Erro ao capturar odd')
-
-        # try:
-        #     cota2 = WebDriverWait(self.chrome, 10).until(
-        #                 EC.presence_of_element_located((By.CSS_SELECTOR, f"ms-event-pick[data-test-option-id='{option_id}'] > div > div:nth-child(2)") )) 
-        #     cota2 = float( cota2.get_property('innerText') )
-        # except Exception as e:
-        #     print('não conseguiu pegar odd do ms-event-pick')
-        #     raise Exception('Erro ao capturar odd')
         
         if cota == None:
             raise Exception('Odds diferem')
-        
-        # if self.controle_over_under % 2 == 0:
-        #     if cota < self.odd_inferior_para_apostar or cota > self.odd_superior_para_apostar:
-        #         print('cota fora do intervalo')
-                
-        #         self.chrome.execute_script("var lixeira = document.querySelector('.betslip-picks-toolbar__remove-all'); if (lixeira) lixeira.click()")
-        #         sleep(0.5)
-        #         self.chrome.execute_script("var confirmacao = document.querySelector('.betslip-picks-toolbar__remove-all--confirm'); if (confirmacao) confirmacao.click()")                                        
-
-        #         raise Exception('Odd fora do intervalo')
         
         self.cota = cota
         return cota
@@ -1152,14 +1132,9 @@ class ChromeAuto():
             clicou = False
             index = 0
             while not clicou and index < 5:
-                try:                                                                   
-                    # mercado_1_tempo = WebDriverWait(self.chrome, 10).until(
-                    #     EC.presence_of_all_elements_located((By.XPATH, "//*[normalize-space(text()) = '2º Tempo']/ancestor::a"))) 
-                    # #EC.presence_of_all_elements_located  
-                    # mercado_1_tempo[index].click()                                                       
+                try:                                                                                                                        
                     empate = WebDriverWait(self.chrome, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id}"]' ) ))                                     
-            # f"//*[normalize-space(text()) = 'X']/ancestor::div/ancestor::ms-event-pick"
+                    EC.element_to_be_clickable((By.XPATH, f'//ms-event-pick[@data-test-option-id="{option_id}"]' ) ))                                                 
                     empate.click()     
                     break                   
                 except Exception as e:
